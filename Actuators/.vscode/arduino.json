@@ -1,0 +1,5 @@
+{
+    "board": "arduino:avr:uno",
+    "sketch": "Motors\\Motor_Arduino\\Motor_Arduino.ino",
+    "output": "../ArduinoOutput"
+}
