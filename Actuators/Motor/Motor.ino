@@ -5,6 +5,7 @@
 #include <std_msgs/String.h>
 #include <geometry_msgs/Vector3Stamped.h>
 #include <geometry_msgs/Twist.h>
+#include <nav_msgs/Odometry.h>
 #include <ros/time.h>
  
 //initializing all the variables
@@ -36,10 +37,6 @@ double speed_cmd_left = 0;                    //Command speed for left wheel in 
 double speed_req_right = 0;                   //Desired speed for right wheel in m/s
 double speed_act_right = 0;                   //Actual speed for right wheel in m/s
 double speed_cmd_right = 0;                   //Command speed for right wheel in m/s 
-                        
-double position_x = 0;
-double position_y = 0;
-double angle_phi = 0;
 
 const double max_speed = 255;                 //Max speed in m/s
 
@@ -75,8 +72,8 @@ void handle_cmd (const geometry_msgs::Twist& cmd_vel) {
 }
 
 ros::Subscriber<geometry_msgs::Twist> cmd_vel("cmd_vel", handle_cmd);   //create a subscriber to ROS topic for velocity commands (will execute "handle_cmd" function when receiving data)
-nav_msgs::Odometry odom;                                //create a "speed_msg" ROS message
-ros::Publisher odom_pub("odom", &odom);                          //create a publisher to ROS topic "odom" using the Odometry type
+geometry_msgs::Vector3Stamped speed_msg;                                //create a "speed_msg" ROS message
+ros::Publisher speed_pub("speed", &speed_msg); 
 
 //__________________________________________________________________________
 
@@ -194,45 +191,17 @@ void loop() {
       noCommLoops = noCommLoopMax;
     }
     
-    publishOdom(LOOPTIME);   //Publish odometry on ROS topic
+    publishSpeed(LOOPTIME);   //Publish odometry on ROS topic
   }
  }
 
 //Publish function for odometry, uses a vector type message to send the data (message type is not meant for that but that's easier than creating a specific message type)
-void publishOdom(double delta_time) {
-  double linear_velocity = (speed_act_right + speed_act_left)/2;
-  double angular_velocity = (speed_act_right - speed_act_left)/wheelbase;
-
-  double dx_dt = linear_velocity * cos(angle_phi);
-  double dy_dt = linear_velocity * sin(angle_phi);
-  double dphi_dt = angular_velocity;
-
-  position_x = position_x * (dx_dt * delta_time/1000);
-  position_y = position_x * (dy_dt * delta_time/1000);
-  angle_phi = angle_phi * (dphi_dt * delta_time/1000);
-
-  //since all odometry is 6DOF we'll need a quaternion created from yaw
-  geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(angle_phi);
-
-  //next, we'll publish the odometry message over ROS
-  nav_msgs::Odometry odom;
-  odom.header.stamp = nh.now();
-  odom.header.frame_id = "odom";
-
-  //set the position
-  odom.pose.pose.position.x = position_x;
-  odom.pose.pose.position.y = position_y;
-  odom.pose.pose.position.z = 0.0;
-  odom.pose.pose.orientation = odom_quat;
-
-  //set the velocity
-  odom.child_frame_id = "base_link";
-  odom.twist.twist.linear.x = dx_dt;
-  odom.twist.twist.linear.y = dy_dt;
-  odom.twist.twist.angular.z = dphi_dt;
-
-  //publish the message
-  odom_pub.publish(odom);
+void publishSpeed(double time) {
+  speed_msg.header.stamp = nh.now();      //timestamp for odometry data
+  speed_msg.vector.x = speed_act_left;    //left wheel speed (in m/s)
+  speed_msg.vector.y = speed_act_right;   //right wheel speed (in m/s)
+  speed_msg.vector.z = time/1000;         //looptime, should be the same as specified in LOOPTIME (in s)
+  speed_pub.publish(&speed_msg);
   nh.spinOnce();
   nh.loginfo("Publishing odometry");
 }
