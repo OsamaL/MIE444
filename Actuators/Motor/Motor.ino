@@ -7,7 +7,7 @@
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/time.h>
- 
+
 //initializing all the variables
 #define LOOPTIME                      100     //Looptime in millisecond
 const byte noCommLoopMax = 10;                //number of main loops the robot will execute without communication before stopping
@@ -38,11 +38,15 @@ double speed_req_right = 0;                   //Desired speed for right wheel in
 double speed_act_right = 0;                   //Actual speed for right wheel in m/s
 double speed_cmd_right = 0;                   //Command speed for right wheel in m/s 
 
+double position_x = 0;
+double position_y = 0;
+double angle_phi = 0;
+
 const double max_speed = 255;                 //Max speed in m/s
 
 int PWM_leftMotor = 0;                     //PWM command for left motor
 int PWM_rightMotor = 0;                    //PWM command for right motor 
-                                                      
+
 // PID Parameters
 const double PID_left_param[] = { 1, 0.1, 0.1 }; //Respectively Kp, Ki and Kd for left motor PID
 const double PID_right_param[] = { 1, 0.0, 0.1 }; //Respectively Kp, Ki and Kd for right motor PID
@@ -56,42 +60,42 @@ PID PID_rightMotor(&speed_act_right, &speed_cmd_right, &speed_req_right, PID_rig
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();  // Create the motor shield object with the default I2C address
 Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);      //Create left motor object
 Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);     //Create right motor object
-  
+
 ros::NodeHandle nh;
 
 //function that will be called when receiving command from host
 void handle_cmd (const geometry_msgs::Twist& cmd_vel) {
   noCommLoops = 0;                                                  //Reset the counter for number of main loops without communication
-  
+
   speed_req = cmd_vel.linear.x;                                     //Extract the commanded linear speed from the message
 
   angular_speed_req = cmd_vel.angular.z;                            //Extract the commanded angular speed from the message
-  
+
   speed_req_left = (2*speed_req - angular_speed_req*wheelbase)/(2);     //Calculate the required speed for the left motor to comply with commanded linear and angular speeds
   speed_req_right = (2*speed_req + angular_speed_req*wheelbase)/(2);     //Calculate the required speed for the right motor to comply with commanded linear and angular speeds
 }
 
 ros::Subscriber<geometry_msgs::Twist> cmd_vel("cmd_vel", handle_cmd);   //create a subscriber to ROS topic for velocity commands (will execute "handle_cmd" function when receiving data)
-geometry_msgs::Vector3Stamped speed_msg;                                //create a "speed_msg" ROS message
-ros::Publisher speed_pub("speed", &speed_msg); 
+nav_msgs::Odometry odom;                                //create a "speed_msg" ROS message
+ros::Publisher odom_pub("odom", &odom);                          //create a publisher to ROS topic "odom" using the Odometry type
 
 //__________________________________________________________________________
 
 void setup() {
-  
+
   nh.initNode();                            //init ROS node
   nh.getHardware()->setBaud(57600);         //set baud for ROS serial communication
   nh.subscribe(cmd_vel);                    //suscribe to ROS topic for velocity commands
-  nh.advertise(speed_pub);                  //prepare to publish speed in ROS topic
- 
+  nh.advertise(odom_pub);                  //prepare to publish speed in ROS topic
+
   AFMS.begin();
-  
+
   //setting motor speeds to zero
   leftMotor->setSpeed(0);
   leftMotor->run(BRAKE);
   rightMotor->setSpeed(0);
   rightMotor->run(BRAKE);
- 
+
   //setting PID parameters
   PID_leftMotor.SetSampleTime(95);
   PID_rightMotor.SetSampleTime(95);
@@ -99,7 +103,7 @@ void setup() {
   PID_rightMotor.SetOutputLimits(-max_speed, max_speed);
   PID_leftMotor.SetMode(AUTOMATIC);
   PID_rightMotor.SetMode(AUTOMATIC);
-    
+
   // Define the rotary encoder for left motor
   pinMode(PIN_ENCOD_A_MOTOR_LEFT, INPUT); 
   pinMode(PIN_ENCOD_B_MOTOR_LEFT, INPUT); 
@@ -122,28 +126,28 @@ void loop() {
   if((millis()-lastMilli) >= LOOPTIME)   
   {                                                                           // enter timed loop
     lastMilli = millis();    
-    
+
     if (abs(pos_left) < ENCODER_TICKS_TOLERANCE){                                                   //Avoid taking in account small disturbances
       speed_act_left = 0;
     }
     else {
       speed_act_left=(pos_left/ENCODER_TICKS_PER_REV)*(2*PI*radius)*(1000/LOOPTIME);           // calculate speed of left wheel
     }
-    
+
     if (abs(pos_right) < ENCODER_TICKS_TOLERANCE){                                                  //Avoid taking in account small disturbances
       speed_act_right = 0;
     }
     else {
     speed_act_right=(pos_right/ENCODER_TICKS_PER_REV)*(2*PI*radius)*(1000/LOOPTIME);          // calculate speed of right wheel
     }
-    
+
     pos_left = 0;
     pos_right = 0;
 
     speed_cmd_left = constrain(speed_cmd_left, -max_speed, max_speed);
     PID_leftMotor.Compute();                                                 // compute PWM value for left motor
     PWM_leftMotor = constrain(speed_cmd_left, -255, 255); //
-    
+
     if (noCommLoops >= noCommLoopMax) {                   //Stopping if too much time without command
       leftMotor->setSpeed(0);
       leftMotor->run(BRAKE);
@@ -160,7 +164,7 @@ void loop() {
       leftMotor->setSpeed(abs(PWM_leftMotor));
       leftMotor->run(FORWARD);
     }
-    
+
     speed_cmd_right = constrain(speed_cmd_right, -max_speed, max_speed);    
     PID_rightMotor.Compute();                                                 // compute PWM value for right motor                                           // compute PWM value for left motor
     PWM_rightMotor = constrain(speed_cmd_right, -255, 255); //
@@ -190,18 +194,50 @@ void loop() {
     if (noCommLoops == 65535){
       noCommLoops = noCommLoopMax;
     }
-    
-    publishSpeed(LOOPTIME);   //Publish odometry on ROS topic
+
+    publishOdom(LOOPTIME);   //Publish odometry on ROS topic
   }
  }
 
 //Publish function for odometry, uses a vector type message to send the data (message type is not meant for that but that's easier than creating a specific message type)
-void publishSpeed(double time) {
-  speed_msg.header.stamp = nh.now();      //timestamp for odometry data
-  speed_msg.vector.x = speed_act_left;    //left wheel speed (in m/s)
-  speed_msg.vector.y = speed_act_right;   //right wheel speed (in m/s)
-  speed_msg.vector.z = time/1000;         //looptime, should be the same as specified in LOOPTIME (in s)
-  speed_pub.publish(&speed_msg);
+void publishOdom(double delta_time) {
+  double linear_velocity = (speed_act_right + speed_act_left)/2;
+  double angular_velocity = (speed_act_right - speed_act_left)/wheelbase;
+
+  double dx_dt = linear_velocity * cos(angle_phi);
+  double dy_dt = linear_velocity * sin(angle_phi);
+  double dphi_dt = angular_velocity;
+
+  position_x = position_x * (dx_dt * delta_time/1000);
+  position_y = position_x * (dy_dt * delta_time/1000);
+  angle_phi = angle_phi * (dphi_dt * delta_time/1000);
+
+  //next, we'll publish the odometry message over ROS
+  nav_msgs::Odometry odom;
+  odom.header.stamp = nh.now();
+  odom.header.frame_id = "odom";
+
+  //set the position
+  odom.pose.pose.position.x = position_x;
+  odom.pose.pose.position.y = position_y;
+  odom.pose.pose.position.z = 0.0;
+
+  //set the orientatoin
+  odom.pose.pose.orientation.w = cos(angle_phi/2.0);
+  odom.pose.pose.orientation.x = 0;
+  odom.pose.pose.orientation.y = 0;
+  odom.pose.pose.orientation.z = sin(angle_phi/2.0);
+  double mag = pow(odom.pose.pose.orientation.w*odom.pose.pose.orientation.w + odom.pose.pose.orientation.z*odom.pose.pose.orientation.z, 0.5);
+  odom.pose.pose.orientation.z = odom.pose.pose.orientation.z / mag;
+  odom.pose.pose.orientation.w = odom.pose.pose.orientation.w / mag;
+  //set the velocity
+  odom.child_frame_id = "base_link";
+  odom.twist.twist.linear.x = dx_dt;
+  odom.twist.twist.linear.y = dy_dt;
+  odom.twist.twist.angular.z = dphi_dt;
+
+  //publish the message
+  odom_pub.publish(&odom);
   nh.spinOnce();
   nh.loginfo("Publishing odometry");
 }
@@ -216,4 +252,4 @@ void encoderLeftMotor() {
 void encoderRightMotor() {
   if (digitalRead(PIN_ENCOD_A_MOTOR_RIGHT) == digitalRead(PIN_ENCOD_B_MOTOR_RIGHT)) pos_right--;
   else pos_right++;
-}
+} 
