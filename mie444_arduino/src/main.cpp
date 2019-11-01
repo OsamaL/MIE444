@@ -25,8 +25,8 @@ const int ENCODER_TICKS_PER_REV = 32;
 const int ENCODER_TICKS_TOLERANCE = 1;               //32 ticks if counting rising and falling for one encoder channel
 
 unsigned long lastMilli = 0;
-const double radius = 0.04;                   //Wheel radius, in m
-const double wheelbase = 0.187;               //Wheelbase, in m
+const double radius = 0.034;                   //Wheel radius, in m
+const double wheelbase = 0.2;               //Wheelbase, in m
 
 double speed_req = 0;                         //Desired linear speed for the robot, in m/s
 double angular_speed_req = 0;                 //Desired angular speed for the robot, in rad/s
