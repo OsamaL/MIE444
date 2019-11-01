@@ -8,6 +8,7 @@
 // #include <geometry_msgs/Twiscdt.h>
 // #include <nav_msgs/Odometry.h>
 // #include <ros/time.h>
+#include <main.h>
 
 //initializing all the variables
 #define LOOPTIME                      100     //Looptime in millisecond
