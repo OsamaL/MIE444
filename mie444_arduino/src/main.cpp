@@ -15,14 +15,12 @@
 const byte noCommLoopMax = 10;                //number of main loops the robot will execute without communication before stopping
 unsigned int noCommLoops = 0;                 //main loop without communication counter
 
+const int PIN_ENCOD_A_MOTOR_LEFT = 18;               //A channel for encoder of left motor                    
+const int PIN_ENCOD_B_MOTOR_LEFT = 19;               //B channel for encoder of left motor
+const int PIN_ENCOD_A_MOTOR_RIGHT = 20;              //A channel for encoder of right motor         
+const int PIN_ENCOD_B_MOTOR_RIGHT = 21;              //B channel for encoder of right motor 
 
-const int PIN_ENCOD_A_MOTOR_LEFT = 2;               //A channel for encoder of left motor                    
-const int PIN_ENCOD_B_MOTOR_LEFT = 4;               //B channel for encoder of left motor
-
-const int PIN_ENCOD_A_MOTOR_RIGHT = 3;              //A channel for encoder of right motor         
-const int PIN_ENCOD_B_MOTOR_RIGHT = 5;              //B channel for encoder of right motor 
-
-const int ENCODER_TICKS_PER_REV = 32;   
+const int ENCODER_TICKS_PER_REV = 32;
 const int ENCODER_TICKS_TOLERANCE = 1;               //32 ticks if counting rising and falling for one encoder channel
 
 unsigned long lastMilli = 0;
@@ -85,124 +83,135 @@ Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);     //Create right motor object
 
 void setup() {
 
-  // nh.initNode();                            //init ROS node
-  // nh.getHardware()->setBaud(57600);         //set baud for ROS serial communication
-  // nh.subscribe(cmd_vel);                    //suscribe to ROS topic for velocity commands
-  // nh.advertise(odom_pub);                  //prepare to publish speed in ROS topic
+	// nh.initNode();                            //init ROS node
+	// nh.getHardware()->setBaud(57600);         //set baud for ROS serial communication
+	// nh.subscribe(cmd_vel);                    //suscribe to ROS topic for velocity commands
+	// nh.advertise(odom_pub);                  //prepare to publish speed in ROS topic
 
-  AFMS.begin();
+	AFMS.begin();
 
-  //setting motor speeds to zero
-  leftMotor->setSpeed(0);
-  leftMotor->run(BRAKE);
-  rightMotor->setSpeed(0);
-  rightMotor->run(BRAKE);
+	//setting motor speeds to zero
+	// leftMotor->setSpeed(0);
+	// leftMotor->run(BRAKE);
+	// rightMotor->setSpeed(0);
+	// rightMotor->run(BRAKE);
 
-  //setting PID parameters
-  PID_leftMotor.SetSampleTime(95);
-  PID_rightMotor.SetSampleTime(95);
-  PID_leftMotor.SetOutputLimits(-max_speed, max_speed);
-  PID_rightMotor.SetOutputLimits(-max_speed, max_speed);
-  PID_leftMotor.SetMode(AUTOMATIC);
-  PID_rightMotor.SetMode(AUTOMATIC);
+	//setting PID parameters
+	// PID_leftMotor.SetSampleTime(95);
+	// PID_rightMotor.SetSampleTime(95);
+	// PID_leftMotor.SetOutputLimits(-max_speed, max_speed);
+	// PID_rightMotor.SetOutputLimits(-max_speed, max_speed);
+	// PID_leftMotor.SetMode(AUTOMATIC);
+	// PID_rightMotor.SetMode(AUTOMATIC);
 
-  // Define the rotary encoder for left motor
-  pinMode(PIN_ENCOD_A_MOTOR_LEFT, INPUT); 
-  pinMode(PIN_ENCOD_B_MOTOR_LEFT, INPUT); 
-  digitalWrite(PIN_ENCOD_A_MOTOR_LEFT, HIGH);                // turn on pullup resistor
-  digitalWrite(PIN_ENCOD_B_MOTOR_LEFT, HIGH);
-  attachInterrupt(0, encoderLeftMotor, RISING);
+	// Define the rotary encoder for left motor
+	pinMode(PIN_ENCOD_A_MOTOR_LEFT, INPUT); 
+	pinMode(PIN_ENCOD_B_MOTOR_LEFT, INPUT); 
+	digitalWrite(PIN_ENCOD_A_MOTOR_LEFT, HIGH);                // turn on pullup resistor
+	digitalWrite(PIN_ENCOD_B_MOTOR_LEFT, HIGH);
+	attachInterrupt(digitalPinToInterrupt(PIN_ENCOD_A_MOTOR_LEFT), encoderLeftMotor, RISING);
 
-  // Define the rotary encoder for right motor
-  pinMode(PIN_ENCOD_A_MOTOR_RIGHT, INPUT); 
-  pinMode(PIN_ENCOD_B_MOTOR_RIGHT, INPUT); 
-  digitalWrite(PIN_ENCOD_A_MOTOR_RIGHT, HIGH);                // turn on pullup resistor
-  digitalWrite(PIN_ENCOD_B_MOTOR_RIGHT, HIGH);
-  attachInterrupt(1, encoderRightMotor, RISING);
-  speed_req = 0.5;
-  angular_speed_req = 0;
-  speed_req_left = (2*speed_req - angular_speed_req*wheelbase)/(2);     //Calculate the required speed for the left motor to comply with commanded linear and angular speeds
-  speed_req_right = (2*speed_req + angular_speed_req*wheelbase)/(2); 
+	// Define the rotary encoder for right motor
+	pinMode(PIN_ENCOD_A_MOTOR_RIGHT, INPUT); 
+	pinMode(PIN_ENCOD_B_MOTOR_RIGHT, INPUT); 
+	digitalWrite(PIN_ENCOD_A_MOTOR_RIGHT, HIGH);                // turn on pullup resistor
+	digitalWrite(PIN_ENCOD_B_MOTOR_RIGHT, HIGH);
+	attachInterrupt(digitalPinToInterrupt(PIN_ENCOD_A_MOTOR_RIGHT), encoderRightMotor, RISING);
+	// speed_req = 0.5;
+	// angular_speed_req = 0;
+	// speed_req_left = (2*speed_req - angular_speed_req*wheelbase)/(2);     //Calculate the required speed for the left motor to comply with commanded linear and angular speeds
+	// speed_req_right = (2*speed_req + angular_speed_req*wheelbase)/(2); 
+	Serial.begin(9600);
 }
 
 //_________________________________________________________________________
 
 void loop() {
-  // nh.spinOnce();
-  if((millis()-lastMilli) >= LOOPTIME)   
-  {                                                                           // enter timed loop
-    lastMilli = millis();    
+	// while(1) {
+	// 	Serial.print(pos_left);
+	// 	Serial.print(" ");
+	// 	Serial.print(pos_right);
+	// 	for(int i = 50; i <= 53; i++){
+	// 		Serial.print(" ");
+	// 		Serial.print(digitalRead(i));
+	// 	}
+	// 	Serial.println();
+	// }
+	// nh.spinOnce();
+	if((millis()-lastMilli) >= LOOPTIME)   
+	{                                                                           // enter timed loop
+	  lastMilli = millis();    
 
-    if (abs(pos_left) < ENCODER_TICKS_TOLERANCE){                                                   //Avoid taking in account small disturbances
-      speed_act_left = 0;
-    }
-    else {
-      speed_act_left=(pos_left/ENCODER_TICKS_PER_REV)*(2*PI*radius)*(1000/LOOPTIME);           // calculate speed of left wheel
-    }
+	  if (abs(pos_left) < ENCODER_TICKS_TOLERANCE){                                                   //Avoid taking in account small disturbances
+	    speed_act_left = 0;
+	  }
+	  else {
+	    speed_act_left=(pos_left/ENCODER_TICKS_PER_REV)*(2*PI*radius)*(1000/LOOPTIME);           // calculate speed of left wheel
+	  }
 
-    if (abs(pos_right) < ENCODER_TICKS_TOLERANCE){                                                  //Avoid taking in account small disturbances
-      speed_act_right = 0;
-    }
-    else {
-    speed_act_right=(pos_right/ENCODER_TICKS_PER_REV)*(2*PI*radius)*(1000/LOOPTIME);          // calculate speed of right wheel
-    }
+	  if (abs(pos_right) < ENCODER_TICKS_TOLERANCE){                                                  //Avoid taking in account small disturbances
+	    speed_act_right = 0;
+	  }
+	  else {
+	  speed_act_right=(pos_right/ENCODER_TICKS_PER_REV)*(2*PI*radius)*(1000/LOOPTIME);          // calculate speed of right wheel
+	  }
 
-    pos_left = 0;
-    pos_right = 0;
+	  pos_left = 0;
+	  pos_right = 0;
 
-    speed_cmd_left = constrain(speed_cmd_left, -max_speed, max_speed);
-    PID_leftMotor.Compute();                                                 // compute PWM value for left motor
-    PWM_leftMotor = constrain(speed_cmd_left, -255, 255); //
+	  speed_cmd_left = constrain(speed_cmd_left, -max_speed, max_speed);
+	  PID_leftMotor.Compute();                                                 // compute PWM value for left motor
+	  PWM_leftMotor = constrain(speed_cmd_left, -255, 255); //
 
-    if (noCommLoops >= noCommLoopMax) {                   //Stopping if too much time without command
-      leftMotor->setSpeed(0);
-      leftMotor->run(BRAKE);
-    }
-    else if (speed_req_left == 0){                        //Stopping
-      leftMotor->setSpeed(0);
-      leftMotor->run(BRAKE);
-    }
-    else if (PWM_leftMotor > 0){                          //Going forward
-      leftMotor->setSpeed(abs(PWM_leftMotor));
-      leftMotor->run(BACKWARD);
-    }
-    else {                                               //Going backward
-      leftMotor->setSpeed(abs(PWM_leftMotor));
-      leftMotor->run(FORWARD);
-    }
+	  if (noCommLoops >= noCommLoopMax) {                   //Stopping if too much time without command
+	    leftMotor->setSpeed(0);
+	    leftMotor->run(BRAKE);
+	  }
+	  else if (speed_req_left == 0){                        //Stopping
+	    leftMotor->setSpeed(0);
+	    leftMotor->run(BRAKE);
+	  }
+	  else if (PWM_leftMotor > 0){                          //Going forward
+	    leftMotor->setSpeed(abs(PWM_leftMotor));
+	    leftMotor->run(BACKWARD);
+	  }
+	  else {                                               //Going backward
+	    leftMotor->setSpeed(abs(PWM_leftMotor));
+	    leftMotor->run(FORWARD);
+	  }
 
-    speed_cmd_right = constrain(speed_cmd_right, -max_speed, max_speed);    
-    PID_rightMotor.Compute();                                                 // compute PWM value for right motor                                           // compute PWM value for left motor
-    PWM_rightMotor = constrain(speed_cmd_right, -255, 255); //
+	  speed_cmd_right = constrain(speed_cmd_right, -max_speed, max_speed);    
+	  PID_rightMotor.Compute();                                                 // compute PWM value for right motor                                           // compute PWM value for left motor
+	  PWM_rightMotor = constrain(speed_cmd_right, -255, 255); //
 
-    if (noCommLoops >= noCommLoopMax) {                   //Stopping if too much time without command
-      rightMotor->setSpeed(0);
-      rightMotor->run(BRAKE);
-    }
-    else if (speed_req_right == 0){                       //Stopping
-      rightMotor->setSpeed(0);
-      rightMotor->run(BRAKE);
-    }
-    else if (PWM_rightMotor > 0){                         //Going forward
-      rightMotor->setSpeed(abs(PWM_rightMotor));
-      rightMotor->run(FORWARD);
-    }
-    else {                                                //Going backward
-      rightMotor->setSpeed(abs(PWM_rightMotor));
-      rightMotor->run(BACKWARD);
-    }
+	  if (noCommLoops >= noCommLoopMax) {                   //Stopping if too much time without command
+	    rightMotor->setSpeed(0);
+	    rightMotor->run(BRAKE);
+	  }
+	  else if (speed_req_right == 0){                       //Stopping
+	    rightMotor->setSpeed(0);
+	    rightMotor->run(BRAKE);
+	  }
+	  else if (PWM_rightMotor > 0){                         //Going forward
+	    rightMotor->setSpeed(abs(PWM_rightMotor));
+	    rightMotor->run(FORWARD);
+	  }
+	  else {                                                //Going backward
+	    rightMotor->setSpeed(abs(PWM_rightMotor));
+	    rightMotor->run(BACKWARD);
+	  }
 
-    if((millis()-lastMilli) >= LOOPTIME){         //write an error if execution time of the loop in longer than the specified looptime
-      Serial.println(" TOO LONG ");
-    }
+	  if((millis()-lastMilli) >= LOOPTIME){         //write an error if execution time of the loop in longer than the specified looptime
+	    Serial.println(" TOO LONG ");
+	  }
 
-    // noCommLoops++;
-    if (noCommLoops == 65535){
-      noCommLoops = noCommLoopMax;
-    }
+	  // noCommLoops++;
+	  if (noCommLoops == 65535){
+	    noCommLoops = noCommLoopMax;
+	  }
 
-    // publishOdom(LOOPTIME);   //Publish odometry on ROS topic
-  }
+	  // publishOdom(LOOPTIME);   //Publish odometry on ROS topic
+	}
  }
 
 //Publish function for odometry, uses a vector type message to send the data (message type is not meant for that but that's easier than creating a specific message type)
@@ -250,12 +259,12 @@ void loop() {
 
 //Left motor encoder counter
 void encoderLeftMotor() {
-  if (digitalRead(PIN_ENCOD_A_MOTOR_LEFT) == digitalRead(PIN_ENCOD_B_MOTOR_LEFT)) pos_left++;
-  else pos_left--;
+	if (digitalRead(PIN_ENCOD_A_MOTOR_LEFT) == digitalRead(PIN_ENCOD_B_MOTOR_LEFT)) pos_left++;
+	else pos_left--;
 }
 
 //Right motor encoder counter
 void encoderRightMotor() {
-  if (digitalRead(PIN_ENCOD_A_MOTOR_RIGHT) == digitalRead(PIN_ENCOD_B_MOTOR_RIGHT)) pos_right--;
-  else pos_right++;
-} 
+	if (digitalRead(PIN_ENCOD_A_MOTOR_RIGHT) == digitalRead(PIN_ENCOD_B_MOTOR_RIGHT)) pos_right--;
+	else pos_right++;
+}
