@@ -2,7 +2,7 @@
 #include <Adafruit_MotorShield.h>
 #include <Wire.h>
 #include <PID_v1.h>
-// #include <ros.h>
+#include <ros.h>
 // #include <std_msgs/String.h>
 // #include <geometry_msgs/Vector3Stamped.h>
 // #include <geometry_msgs/Twist.h>
