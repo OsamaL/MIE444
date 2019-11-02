@@ -11,7 +11,7 @@
 #include <main.h>
 
 //initializing all the variables
-const int LOOPTIME                      100     //Looptime in millisecond
+const int LOOPTIME = 100;     //Looptime in millisecond
 
 const int PIN_ENCOD_A_MOTOR_LEFT = 18;               //A channel for encoder of left motor                    
 const int PIN_ENCOD_B_MOTOR_LEFT = 19;               //B channel for encoder of left motor
@@ -37,8 +37,8 @@ const double PID_right_param[] = { 1, 0.0, 0.1 }; //Respectively Kp, Ki and Kd f
 volatile float pos_left = 0;       //Left motor encoder position
 volatile float pos_right = 0;      //Right motor encoder position
 
-PID PID_leftMotor(&speed_act_left, &speed_cmd_left, &speed_req_left, PID_left_param[0], PID_left_param[1], PID_left_param[2], DIRECT);          //Setting up the PID for left motor
-PID PID_rightMotor(&speed_act_right, &speed_cmd_right, &speed_req_right, PID_right_param[0], PID_right_param[1], PID_right_param[2], DIRECT);   //Setting up the PID for right motor
+// PID PID_leftMotor(&speed_act_left, &speed_cmd_left, &speed_req_left, PID_left_param[0], PID_left_param[1], PID_left_param[2], DIRECT);          //Setting up the PID for left motor
+// PID PID_rightMotor(&speed_act_right, &speed_cmd_right, &speed_req_right, PID_right_param[0], PID_right_param[1], PID_right_param[2], DIRECT);   //Setting up the PID for right motor
 
 void setup() {
 	Serial.begin(115200);
@@ -67,14 +67,14 @@ void loop() {
 	delay(1000);
 }
 
-//Left motor encoder counter
-void encoderLeftMotor() {
-	if (digitalRead(PIN_ENCOD_A_MOTOR_LEFT) == digitalRead(PIN_ENCOD_B_MOTOR_LEFT)) pos_left++;
-	else pos_left--;
-}
+// //Left motor encoder counter
+// void encoderLeftMotor() {
+// 	if (digitalRead(PIN_ENCOD_A_MOTOR_LEFT) == digitalRead(PIN_ENCOD_B_MOTOR_LEFT)) pos_left++;
+// 	else pos_left--;
+// }
 
-//Right motor encoder counter
-void encoderRightMotor() {
-	if (digitalRead(PIN_ENCOD_A_MOTOR_RIGHT) == digitalRead(PIN_ENCOD_B_MOTOR_RIGHT)) pos_right--;
-	else pos_right++;
-}
+// //Right motor encoder counter
+// void encoderRightMotor() {
+// 	if (digitalRead(PIN_ENCOD_A_MOTOR_RIGHT) == digitalRead(PIN_ENCOD_B_MOTOR_RIGHT)) pos_right--;
+// 	else pos_right++;
+// }
