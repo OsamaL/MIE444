@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <Adafruit_MotorShield.h>
+#include <L298N.h>
 #include <Wire.h>
 #include <PID_v1.h>
 #include <ros.h>
@@ -11,7 +11,7 @@
 #include <main.h>
 
 //initializing all the variables
-#define LOOPTIME                      100     //Looptime in millisecond
+const int LOOPTIME                      100     //Looptime in millisecond
 const byte noCommLoopMax = 10;                //number of main loops the robot will execute without communication before stopping
 unsigned int noCommLoops = 0;                 //main loop without communication counter
 
@@ -38,10 +38,6 @@ double speed_req_right = 0;                   //Desired speed for right wheel in
 double speed_act_right = 0;                   //Actual speed for right wheel in m/s
 double speed_cmd_right = 0;                   //Command speed for right wheel in m/s 
 
-// double position_x = 0;
-// double position_y = 0;
-// double angle_phi = 0;
-
 const double max_speed = 255;                 //Max speed in m/s
 
 int PWM_leftMotor = 0;                     //PWM command for left motor
@@ -57,205 +53,11 @@ volatile float pos_right = 0;      //Right motor encoder position
 PID PID_leftMotor(&speed_act_left, &speed_cmd_left, &speed_req_left, PID_left_param[0], PID_left_param[1], PID_left_param[2], DIRECT);          //Setting up the PID for left motor
 PID PID_rightMotor(&speed_act_right, &speed_cmd_right, &speed_req_right, PID_right_param[0], PID_right_param[1], PID_right_param[2], DIRECT);   //Setting up the PID for right motor
 
-Adafruit_MotorShield AFMS = Adafruit_MotorShield();  // Create the motor shield object with the default I2C address
-Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);      //Create left motor object
-Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);     //Create right motor object
-
-// ros::NodeHandle nh;
-
-// //function that will be called when receiving command from host
-// void handle_cmd (const geometry_msgs::Twist& cmd_vel) {
-//   noCommLoops = 0;                                                  //Reset the counter for number of main loops without communication
-
-//   speed_req = cmd_vel.linear.x;                                     //Extract the commanded linear speed from the message
-
-//   angular_speed_req = cmd_vel.angular.z;                            //Extract the commanded angular speed from the message
-
-//   speed_req_left = (2*speed_req - angular_speed_req*wheelbase)/(2);     //Calculate the required speed for the left motor to comply with commanded linear and angular speeds
-//   speed_req_right = (2*speed_req + angular_speed_req*wheelbase)/(2);     //Calculate the required speed for the right motor to comply with commanded linear and angular speeds
-// }
-
-// ros::Subscriber<geometry_msgs::Twist> cmd_vel("cmd_vel", handle_cmd);   //create a subscriber to ROS topic for velocity commands (will execute "handle_cmd" function when receiving data)
-// nav_msgs::Odometry odom;                                //create a "speed_msg" ROS message
-// ros::Publisher odom_pub("odom", &odom);                          //create a publisher to ROS topic "odom" using the Odometry type
-
-//__________________________________________________________________________
-
 void setup() {
 
-	// nh.initNode();                            //init ROS node
-	// nh.getHardware()->setBaud(57600);         //set baud for ROS serial communication
-	// nh.subscribe(cmd_vel);                    //suscribe to ROS topic for velocity commands
-	// nh.advertise(odom_pub);                  //prepare to publish speed in ROS topic
-
-	AFMS.begin();
-
-	//setting motor speeds to zero
-	// leftMotor->setSpeed(0);
-	// leftMotor->run(BRAKE);
-	// rightMotor->setSpeed(0);
-	// rightMotor->run(BRAKE);
-
-	//setting PID parameters
-	// PID_leftMotor.SetSampleTime(95);
-	// PID_rightMotor.SetSampleTime(95);
-	// PID_leftMotor.SetOutputLimits(-max_speed, max_speed);
-	// PID_rightMotor.SetOutputLimits(-max_speed, max_speed);
-	// PID_leftMotor.SetMode(AUTOMATIC);
-	// PID_rightMotor.SetMode(AUTOMATIC);
-
-	// Define the rotary encoder for left motor
-	pinMode(PIN_ENCOD_A_MOTOR_LEFT, INPUT); 
-	pinMode(PIN_ENCOD_B_MOTOR_LEFT, INPUT); 
-	digitalWrite(PIN_ENCOD_A_MOTOR_LEFT, HIGH);                // turn on pullup resistor
-	digitalWrite(PIN_ENCOD_B_MOTOR_LEFT, HIGH);
-	attachInterrupt(digitalPinToInterrupt(PIN_ENCOD_A_MOTOR_LEFT), encoderLeftMotor, RISING);
-
-	// Define the rotary encoder for right motor
-	pinMode(PIN_ENCOD_A_MOTOR_RIGHT, INPUT); 
-	pinMode(PIN_ENCOD_B_MOTOR_RIGHT, INPUT); 
-	digitalWrite(PIN_ENCOD_A_MOTOR_RIGHT, HIGH);                // turn on pullup resistor
-	digitalWrite(PIN_ENCOD_B_MOTOR_RIGHT, HIGH);
-	attachInterrupt(digitalPinToInterrupt(PIN_ENCOD_A_MOTOR_RIGHT), encoderRightMotor, RISING);
-	// speed_req = 0.5;
-	// angular_speed_req = 0;
-	// speed_req_left = (2*speed_req - angular_speed_req*wheelbase)/(2);     //Calculate the required speed for the left motor to comply with commanded linear and angular speeds
-	// speed_req_right = (2*speed_req + angular_speed_req*wheelbase)/(2); 
-	Serial.begin(9600);
 }
 
-//_________________________________________________________________________
 
-void loop() {
-	// while(1) {
-	// 	Serial.print(pos_left);
-	// 	Serial.print(" ");
-	// 	Serial.print(pos_right);
-	// 	for(int i = 50; i <= 53; i++){
-	// 		Serial.print(" ");
-	// 		Serial.print(digitalRead(i));
-	// 	}
-	// 	Serial.println();
-	// }
-	// nh.spinOnce();
-	if((millis()-lastMilli) >= LOOPTIME)   
-	{                                                                           // enter timed loop
-	  lastMilli = millis();    
-
-	  if (abs(pos_left) < ENCODER_TICKS_TOLERANCE){                                                   //Avoid taking in account small disturbances
-	    speed_act_left = 0;
-	  }
-	  else {
-	    speed_act_left=(pos_left/ENCODER_TICKS_PER_REV)*(2*PI*radius)*(1000/LOOPTIME);           // calculate speed of left wheel
-	  }
-
-	  if (abs(pos_right) < ENCODER_TICKS_TOLERANCE){                                                  //Avoid taking in account small disturbances
-	    speed_act_right = 0;
-	  }
-	  else {
-	  speed_act_right=(pos_right/ENCODER_TICKS_PER_REV)*(2*PI*radius)*(1000/LOOPTIME);          // calculate speed of right wheel
-	  }
-
-	  pos_left = 0;
-	  pos_right = 0;
-
-	  speed_cmd_left = constrain(speed_cmd_left, -max_speed, max_speed);
-	  PID_leftMotor.Compute();                                                 // compute PWM value for left motor
-	  PWM_leftMotor = constrain(speed_cmd_left, -255, 255); //
-
-	  if (noCommLoops >= noCommLoopMax) {                   //Stopping if too much time without command
-	    leftMotor->setSpeed(0);
-	    leftMotor->run(BRAKE);
-	  }
-	  else if (speed_req_left == 0){                        //Stopping
-	    leftMotor->setSpeed(0);
-	    leftMotor->run(BRAKE);
-	  }
-	  else if (PWM_leftMotor > 0){                          //Going forward
-	    leftMotor->setSpeed(abs(PWM_leftMotor));
-	    leftMotor->run(BACKWARD);
-	  }
-	  else {                                               //Going backward
-	    leftMotor->setSpeed(abs(PWM_leftMotor));
-	    leftMotor->run(FORWARD);
-	  }
-
-	  speed_cmd_right = constrain(speed_cmd_right, -max_speed, max_speed);    
-	  PID_rightMotor.Compute();                                                 // compute PWM value for right motor                                           // compute PWM value for left motor
-	  PWM_rightMotor = constrain(speed_cmd_right, -255, 255); //
-
-	  if (noCommLoops >= noCommLoopMax) {                   //Stopping if too much time without command
-	    rightMotor->setSpeed(0);
-	    rightMotor->run(BRAKE);
-	  }
-	  else if (speed_req_right == 0){                       //Stopping
-	    rightMotor->setSpeed(0);
-	    rightMotor->run(BRAKE);
-	  }
-	  else if (PWM_rightMotor > 0){                         //Going forward
-	    rightMotor->setSpeed(abs(PWM_rightMotor));
-	    rightMotor->run(FORWARD);
-	  }
-	  else {                                                //Going backward
-	    rightMotor->setSpeed(abs(PWM_rightMotor));
-	    rightMotor->run(BACKWARD);
-	  }
-
-	  if((millis()-lastMilli) >= LOOPTIME){         //write an error if execution time of the loop in longer than the specified looptime
-	    Serial.println(" TOO LONG ");
-	  }
-
-	  // noCommLoops++;
-	  if (noCommLoops == 65535){
-	    noCommLoops = noCommLoopMax;
-	  }
-
-	  // publishOdom(LOOPTIME);   //Publish odometry on ROS topic
-	}
- }
-
-//Publish function for odometry, uses a vector type message to send the data (message type is not meant for that but that's easier than creating a specific message type)
-// void publishOdom(double delta_time) {
-//   double linear_velocity = (speed_act_right + speed_act_left)/2;
-//   double angular_velocity = (speed_act_right - speed_act_left)/wheelbase;
-
-//   double dx_dt = linear_velocity * cos(angle_phi);
-//   double dy_dt = linear_velocity * sin(angle_phi);
-//   double dphi_dt = angular_velocity;
-
-//   position_x = position_x * (dx_dt * delta_time/1000);
-//   position_y = position_x * (dy_dt * delta_time/1000);
-//   angle_phi = angle_phi * (dphi_dt * delta_time/1000);
-
-//   //next, we'll publish the odometry message over ROS
-//   nav_msgs::Odometry odom;
-//   odom.header.stamp = nh.now();
-//   odom.header.frame_id = "odom";
-
-//   //set the position
-//   odom.pose.pose.position.x = position_x;
-//   odom.pose.pose.position.y = position_y;
-//   odom.pose.pose.position.z = 0.0;
-
-//   //set the orientatoin
-//   odom.pose.pose.orientation.w = cos(angle_phi/2.0);
-//   odom.pose.pose.orientation.x = 0;
-//   odom.pose.pose.orientation.y = 0;
-//   odom.pose.pose.orientation.z = sin(angle_phi/2.0);
-//   double mag = pow(odom.pose.pose.orientation.w*odom.pose.pose.orientation.w + odom.pose.pose.orientation.z*odom.pose.pose.orientation.z, 0.5);
-//   odom.pose.pose.orientation.z = odom.pose.pose.orientation.z / mag;
-//   odom.pose.pose.orientation.w = odom.pose.pose.orientation.w / mag;
-//   //set the velocity
-//   odom.child_frame_id = "base_link";
-//   odom.twist.twist.linear.x = dx_dt;
-//   odom.twist.twist.linear.y = dy_dt;
-//   odom.twist.twist.angular.z = dphi_dt;
-
-//   //publish the message
-//   odom_pub.publish(&odom);
-//   nh.spinOnce();
-//   nh.loginfo("Publishing odometry");
-// }
 
 //Left motor encoder counter
 void encoderLeftMotor() {
