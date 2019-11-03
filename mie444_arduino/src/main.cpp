@@ -1,13 +1,15 @@
 #include <Arduino.h>
+#include <string.h>
 #include <L298N.h>
 #include <Wire.h>
 #include <PID_v1.h>
 #include <ros.h>
 // #include <std_msgs/String.h>
 // #include <geometry_msgs/Vector3Stamped.h>
-// #include <geometry_msgs/Twiscdt.h>
+#include <geometry_msgs/Twist.h>
 // #include <nav_msgs/Odometry.h>
 // #include <ros/time.h>
+// #include <stdlib.h>
 #include <main.h>
 
 //initializing all the variables
@@ -39,7 +41,7 @@ double Ki[2] = {2000.00, 0.00};
 double Kd[2] = {2.00, 0.00};
 const double spdLimit[2] = {255, 255};
 
-// Raw position from encoders
+// Raw position from encodersdtostrf() 
 double goal_vel[2] = {0, 0};   // m/s
 volatile long raw_pos[2];      // in encoder ticks
 double output_pwm[2] = {0, 0};
@@ -51,48 +53,42 @@ volatile long prev_pid_time = 0;
 PID L_PID(&actual_vel[0], &output_pwm[0], &goal_vel[0], Kp[0], Ki[0], Kd[0], DIRECT);
 PID R_PID(&actual_vel[1], &output_pwm[1], &goal_vel[1], Kp[1], Ki[1], Kd[1], DIRECT);
 
+// Setup ROS
+ros::NodeHandle nh;
+
+ros::Subscriber<geometry_msgs::Twist> cmd_vel("cmd_vel", cmd_vel_cb);
+
 void setup() {
 	delay(100); // This fixes the PID NaN issues. it's spooky.
-	// Serial.println("starting up");
-	Serial.begin(115200);
-	// L_motor.stop();
-	// R_motor.stop();
+	L_motor.stop();
+	R_motor.stop();
 	setup_encoders();
-	// Serial.println("done setup encoders");
 	setup_PID();
-	// Serial.println("done setup pid");
 	goal_vel[0] = 0.10;
 	goal_vel[1] = 0.00;
+
+	// Setup ROS
+	nh.initNode();
+	nh.loginfo("Node initialized");
+	nh.subscribe(cmd_vel);
 }
 
 void loop() {
+	nh.spinOnce();
 	// do some stuff here to assign goal_vel
-
-	// Serial.print(raw_pos[0]);
-	// Serial.print(" ");
-	// Serial.print(raw_pos[1]);
-	// Serial.println();
 
 	update_PID();
 	update_motors();
 	delay(10);
-	// Serial.println();
 }
 
 void update_PID() {
 	// compute the velocities in m/s from raw_pos
 	long cur_pid_time = millis();
 	double delta_t = 0.001 * double(cur_pid_time - prev_pid_time); // in seconds
-	// Serial.print(" delta_t = ");
-	// Serial.print(delta_t);
 
 	actual_vel[0] = raw_to_meters[0] * double(raw_pos[0] - prev_raw_pos[0]) / delta_t;
 	actual_vel[1] = raw_to_meters[1] * double(raw_pos[1] - prev_raw_pos[1]) / delta_t;
-
-	// Serial.print(" actual_vel[0] = ");
-	// Serial.print(actual_vel[0]);
-	// Serial.print(" actual_vel[1] = ");
-	// Serial.print(actual_vel[1]);
 
 	prev_raw_pos[0] = raw_pos[0];
 	prev_raw_pos[1] = raw_pos[1];
@@ -100,16 +96,6 @@ void update_PID() {
 
     L_PID.Compute();
     R_PID.Compute();
-
-	// Serial.print(" output_pwm[0] = ");
-	// Serial.print(output_pwm[0]);
-	// Serial.print(" output_pwm[1] = ");
-	// Serial.print(output_pwm[1]);
-
-	// Serial.print(" goal_vel[0] = ");
-	// Serial.print(goal_vel[0]);
-	// Serial.print(" goal_vel[1] = ");
-	// Serial.print(goal_vel[1]);
 }
 
 void setup_PID() {
@@ -154,4 +140,15 @@ void update_motors() {
 	R_motor.setSpeed(abs(output_pwm[1]));
 	if ( output_pwm[1] < 0) R_motor.forward();
 	else R_motor.backward();
+}
+
+void cmd_vel_cb(const geometry_msgs::Twist& twist_input) {
+	double goal_speed = twist_input.linear.x;
+	double goal_angular = twist_input.angular.z;
+	goal_vel[0] = (2*goal_speed - goal_angular*wheelbase)/(2);
+	goal_vel[1] = (2*goal_speed + goal_angular*wheelbase)/(2);
+	nh.loginfo(String("Got cmd_vel: " + String(goal_speed, 3) +
+	           " ," + String(goal_angular, 3)).c_str());
+	nh.loginfo(String("goal_vel: " + String(goal_vel[0], 3) +
+	           " ," + String(goal_vel[1], 3)).c_str());
 }
