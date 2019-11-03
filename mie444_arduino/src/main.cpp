@@ -34,10 +34,10 @@ L298N L_motor(5, 6, 7);
 L298N R_motor(8, 9, 10);
 
 // PID Parameters
-double Kp[7] = {1.00, 1.00};
-double Ki[7] = {0.00, 0.00};
-double Kd[7] = {0.00, 0.00};
-const char spdLimit[2] = {255, 255};
+double Kp[2] = {1.00, 1.00};
+double Ki[2] = {0.00, 0.00};
+double Kd[2] = {0.00, 0.00};
+const double spdLimit[2] = {255, 255};
 
 // Raw position from encoders
 double goal_vel[2] = {0, 0};   // m/s
@@ -52,6 +52,7 @@ PID L_PID(&actual_vel[0], &output_pwm[0], &goal_vel[0], Kp[0], Ki[0], Kd[0], DIR
 PID R_PID(&actual_vel[1], &output_pwm[1], &goal_vel[1], Kp[1], Ki[1], Kd[1], DIRECT);
 
 void setup() {
+	delay(100); // This fixes the PID NaN issues. it's spooky.
 	Serial.println("starting up");
 	Serial.begin(115200);
 	// L_motor.stop();
@@ -60,13 +61,12 @@ void setup() {
 	Serial.println("done setup encoders");
 	setup_PID();
 	Serial.println("done setup pid");
+	goal_vel[0] = 0.05;
+	goal_vel[1] = 0.05;
 }
 
 void loop() {
 	// do some stuff here to assign goal_vel
-
-	goal_vel[0] = 0.05;
-	goal_vel[1] = 0.05;
 
 	// Serial.print(raw_pos[0]);
 	// Serial.print(" ");
@@ -75,7 +75,7 @@ void loop() {
 
 	update_PID();
 	update_motors();
-	delay(10);
+	delay(200);
 	Serial.println();
 }
 
@@ -106,10 +106,10 @@ void update_PID() {
 	Serial.print(" output_pwm[1] = ");
 	Serial.print(output_pwm[1]);
 
-	Serial.print(" goal_vel[0] = ");
-	Serial.print(goal_vel[0]);
-	Serial.print(" goal_vel[1] = ");
-	Serial.print(goal_vel[1]);
+	// Serial.print(" goal_vel[0] = ");
+	// Serial.print(goal_vel[0]);
+	// Serial.print(" goal_vel[1] = ");
+	// Serial.print(goal_vel[1]);
 }
 
 void setup_PID() {
