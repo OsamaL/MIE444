@@ -24,7 +24,7 @@ const int ENCODER_TICKS_TOLERANCE = 1; //32 ticks if counting rising and falling
 const double wheel_radius = 0.034;                   //Wheel wheel_, in m
 const double wheelbase = 0.2;                        //Wheelbase, in m
 
-const double ppr[2] = {30, 30};
+const double ppr[2] = {5909.0/20.0, 10332.0/20.0};
 const double raw_to_meters[2] = {2 * PI * wheel_radius / ppr[0],
                                  2 * PI * wheel_radius / ppr[1]};
 
@@ -35,9 +35,9 @@ L298N R_motor(8, 9, 10);
 
 // PID Parameters
 double Kp[7] = {1.00, 1.00};
-double Ki[7] = {0.10, 0.10};
-double Kd[7] = {0.01, 0.01};
-const char spdLimit[7] = {255, 255};
+double Ki[7] = {0.00, 0.00};
+double Kd[7] = {0.00, 0.00};
+const char spdLimit[2] = {255, 255};
 
 // Raw position from encoders
 double goal_vel[2] = {0, 0};   // m/s
@@ -52,31 +52,47 @@ PID L_PID(&actual_vel[0], &output_pwm[0], &goal_vel[0], Kp[0], Ki[0], Kd[0], DIR
 PID R_PID(&actual_vel[1], &output_pwm[1], &goal_vel[1], Kp[1], Ki[1], Kd[1], DIRECT);
 
 void setup() {
-	Serial.begin(9600);
+	Serial.println("starting up");
+	Serial.begin(115200);
 	// L_motor.stop();
 	// R_motor.stop();
 	setup_encoders();
+	Serial.println("done setup encoders");
 	setup_PID();
+	Serial.println("done setup pid");
 }
 
 void loop() {
 	// do some stuff here to assign goal_vel
 
-	Serial.print(raw_pos[0]);
-	Serial.print(" ");
-	Serial.print(raw_pos[1]);
+	goal_vel[0] = 0.05;
+	goal_vel[1] = 0.05;
+
+	// Serial.print(raw_pos[0]);
+	// Serial.print(" ");
+	// Serial.print(raw_pos[1]);
+	// Serial.println();
+
+	update_PID();
+	update_motors();
+	delay(10);
 	Serial.println();
-	// update_PID();
-	// update_motors();
 }
 
 void update_PID() {
 	// compute the velocities in m/s from raw_pos
 	long cur_pid_time = millis();
 	double delta_t = 0.001 * double(cur_pid_time - prev_pid_time); // in seconds
+	Serial.print(" delta_t = ");
+	Serial.print(delta_t);
 
 	actual_vel[0] = raw_to_meters[0] * double(raw_pos[0] - prev_raw_pos[0]) / delta_t;
 	actual_vel[1] = raw_to_meters[1] * double(raw_pos[1] - prev_raw_pos[1]) / delta_t;
+
+	Serial.print(" actual_vel[0] = ");
+	Serial.print(actual_vel[0]);
+	Serial.print(" actual_vel[1] = ");
+	Serial.print(actual_vel[1]);
 
 	prev_raw_pos[0] = raw_pos[0];
 	prev_raw_pos[1] = raw_pos[1];
@@ -84,6 +100,16 @@ void update_PID() {
 
     L_PID.Compute();
     R_PID.Compute();
+
+	Serial.print(" output_pwm[0] = ");
+	Serial.print(output_pwm[0]);
+	Serial.print(" output_pwm[1] = ");
+	Serial.print(output_pwm[1]);
+
+	Serial.print(" goal_vel[0] = ");
+	Serial.print(goal_vel[0]);
+	Serial.print(" goal_vel[1] = ");
+	Serial.print(goal_vel[1]);
 }
 
 void setup_PID() {
@@ -110,12 +136,22 @@ void setup_encoders() {
 
 //Left motor encoder counter
 void encoderLeftMotor() {
-	if (digitalRead(LEFT_ENC_A) == digitalRead(LEFT_ENC_B)) raw_pos[0]++;
-	else raw_pos[0];
+	if (digitalRead(LEFT_ENC_A) == digitalRead(LEFT_ENC_B)) raw_pos[0]--;
+	else raw_pos[0]++;
 }
 
 //Right motor encoder counter
 void encoderRightMotor() {
 	if (digitalRead(RIGHT_ENC_A) == digitalRead(RIGHT_ENC_B)) raw_pos[1]--;
 	else raw_pos[1]++;
+}
+
+void update_motors() {
+	L_motor.setSpeed(abs(output_pwm[0]));
+	if ( output_pwm[0] >= 0) L_motor.forward();
+	else L_motor.backward();
+
+	R_motor.setSpeed(abs(output_pwm[1]));
+	if ( output_pwm[1] >= 0) R_motor.forward();
+	else R_motor.backward();
 }
