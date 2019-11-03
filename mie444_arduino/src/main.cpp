@@ -56,7 +56,7 @@ PID R_PID(&actual_vel[1], &output_pwm[1], &goal_vel[1], Kp[1], Ki[1], Kd[1], DIR
 // Setup ROS
 ros::NodeHandle nh;
 
-ros::Subscriber<geometry_msgs::Twist> cmd_vel("cmd_vel", cmd_vel_cb);
+ros::Subscriber<geometry_msgs::Twist> cmd_vel("/cmd_vel", cmd_vel_cb);
 
 void setup() {
 	delay(100); // This fixes the PID NaN issues. it's spooky.
@@ -68,6 +68,7 @@ void setup() {
 	goal_vel[1] = 0.00;
 
 	// Setup ROS
+	nh.getHardware()->setBaud(115200);
 	nh.initNode();
 	nh.loginfo("Node initialized");
 	nh.subscribe(cmd_vel);
