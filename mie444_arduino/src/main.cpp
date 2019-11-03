@@ -13,68 +13,109 @@
 //initializing all the variables
 const int LOOPTIME = 100;     //Looptime in millisecond
 
-const int PIN_ENCOD_A_MOTOR_LEFT = 18;               //A channel for encoder of left motor                    
-const int PIN_ENCOD_B_MOTOR_LEFT = 19;               //B channel for encoder of left motor
-const int PIN_ENCOD_A_MOTOR_RIGHT = 20;              //A channel for encoder of right motor         
-const int PIN_ENCOD_B_MOTOR_RIGHT = 21;              //B channel for encoder of right motor 
+const int LEFT_ENC_A = 18;               //A channel for encoder of left motor                    
+const int LEFT_ENC_B = 19;               //B channel for encoder of left motor
+const int RIGHT_ENC_A = 20;              //A channel for encoder of right motor         
+const int RIGHT_ENC_B = 21;              //B channel for encoder of right motor 
 
 const int ENCODER_TICKS_PER_REV = 32;
-const int ENCODER_TICKS_TOLERANCE = 1;               //32 ticks if counting rising and falling for one encoder channel
+const int ENCODER_TICKS_TOLERANCE = 1; //32 ticks if counting rising and falling for one encoder channel
 
-const double radius = 0.034;                   //Wheel radius, in m
-const double wheelbase = 0.2;               //Wheelbase, in m
+const double wheel_radius = 0.034;                   //Wheel wheel_, in m
+const double wheelbase = 0.2;                        //Wheelbase, in m
+
+const double ppr[2] = {30, 30};
+const double raw_to_meters[2] = {2 * PI * wheel_radius / ppr[0],
+                                 2 * PI * wheel_radius / ppr[1]};
 
 // Define motors
-
 // EN, IN1, IN2
 L298N L_motor(5, 6, 7);
 L298N R_motor(8, 9, 10);
 
 // PID Parameters
-const double PID_left_param[] = { 1, 0.1, 0.1 }; //Respectively Kp, Ki and Kd for left motor PID
-const double PID_right_param[] = { 1, 0.0, 0.1 }; //Respectively Kp, Ki and Kd for right motor PID
+double Kp[7] = {1.00, 1.00};
+double Ki[7] = {0.10, 0.10};
+double Kd[7] = {0.01, 0.01};
+const char spdLimit[7] = {255, 255};
 
-volatile float pos_left = 0;       //Left motor encoder position
-volatile float pos_right = 0;      //Right motor encoder position
+// Raw position from encoders
+double goal_vel[2] = {0, 0};   // m/s
+volatile long raw_pos[2];      // in encoder ticks
+double output_pwm[2] = {0, 0};
+double actual_vel[2] = {0, 0}; // m/s
 
-// PID PID_leftMotor(&speed_act_left, &speed_cmd_left, &speed_req_left, PID_left_param[0], PID_left_param[1], PID_left_param[2], DIRECT);          //Setting up the PID for left motor
-// PID PID_rightMotor(&speed_act_right, &speed_cmd_right, &speed_req_right, PID_right_param[0], PID_right_param[1], PID_right_param[2], DIRECT);   //Setting up the PID for right motor
+volatile long prev_raw_pos[2] = {0, 0}; // in encoder ticks
+volatile long prev_pid_time = 0;
+
+PID L_PID(&actual_vel[0], &output_pwm[0], &goal_vel[0], Kp[0], Ki[0], Kd[0], DIRECT);
+PID R_PID(&actual_vel[1], &output_pwm[1], &goal_vel[1], Kp[1], Ki[1], Kd[1], DIRECT);
 
 void setup() {
-	Serial.begin(115200);
-	L_motor.stop();
-	R_motor.stop();
+	Serial.begin(9600);
+	// L_motor.stop();
+	// R_motor.stop();
+	setup_encoders();
+	setup_PID();
 }
 
 void loop() {
-	L_motor.setSpeed(255);
-	R_motor.setSpeed(255);
-	L_motor.forward();
-	R_motor.forward();
-	delay(3000);
-	L_motor.stop();
-	R_motor.stop();
-	delay(1000);
-	L_motor.setSpeed(255);
-	R_motor.setSpeed(255);
-	L_motor.backward();
-	R_motor.forward();
-	delay(1000);
-	L_motor.setSpeed(255);
-	R_motor.setSpeed(255);
-	L_motor.forward();
-	R_motor.backward();
-	delay(1000);
+	// do some stuff here to assign goal_vel
+
+	Serial.print(raw_pos[0]);
+	Serial.print(" ");
+	Serial.print(raw_pos[1]);
+	Serial.println();
+	// update_PID();
+	// update_motors();
 }
 
-// //Left motor encoder counter
-// void encoderLeftMotor() {
-// 	if (digitalRead(PIN_ENCOD_A_MOTOR_LEFT) == digitalRead(PIN_ENCOD_B_MOTOR_LEFT)) pos_left++;
-// 	else pos_left--;
-// }
+void update_PID() {
+	// compute the velocities in m/s from raw_pos
+	long cur_pid_time = millis();
+	double delta_t = 0.001 * double(cur_pid_time - prev_pid_time); // in seconds
 
-// //Right motor encoder counter
-// void encoderRightMotor() {
-// 	if (digitalRead(PIN_ENCOD_A_MOTOR_RIGHT) == digitalRead(PIN_ENCOD_B_MOTOR_RIGHT)) pos_right--;
-// 	else pos_right++;
-// }
+	actual_vel[0] = raw_to_meters[0] * double(raw_pos[0] - prev_raw_pos[0]) / delta_t;
+	actual_vel[1] = raw_to_meters[1] * double(raw_pos[1] - prev_raw_pos[1]) / delta_t;
+
+	prev_raw_pos[0] = raw_pos[0];
+	prev_raw_pos[1] = raw_pos[1];
+	prev_pid_time = cur_pid_time;
+
+    L_PID.Compute();
+    R_PID.Compute();
+}
+
+void setup_PID() {
+    L_PID.SetMode(AUTOMATIC);
+    L_PID.SetOutputLimits(-spdLimit[0], spdLimit[0]);
+    R_PID.SetMode(AUTOMATIC);
+    R_PID.SetOutputLimits(-spdLimit[1], spdLimit[1]);
+}
+
+void setup_encoders() {
+	pinMode(LEFT_ENC_A, INPUT); 
+	pinMode(LEFT_ENC_B, INPUT); 
+	digitalWrite(LEFT_ENC_A, HIGH);                // turn on pullup resistor
+	digitalWrite(LEFT_ENC_B, HIGH);
+	attachInterrupt(digitalPinToInterrupt(LEFT_ENC_A), encoderLeftMotor, RISING);
+
+	// Define the rotary encoder for right motor
+	pinMode(RIGHT_ENC_A, INPUT); 
+	pinMode(RIGHT_ENC_B, INPUT); 
+	digitalWrite(RIGHT_ENC_A, HIGH);                // turn on pullup resistor
+	digitalWrite(RIGHT_ENC_B, HIGH);
+	attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_A), encoderRightMotor, RISING);
+}
+
+//Left motor encoder counter
+void encoderLeftMotor() {
+	if (digitalRead(LEFT_ENC_A) == digitalRead(LEFT_ENC_B)) raw_pos[0]++;
+	else raw_pos[0];
+}
+
+//Right motor encoder counter
+void encoderRightMotor() {
+	if (digitalRead(RIGHT_ENC_A) == digitalRead(RIGHT_ENC_B)) raw_pos[1]--;
+	else raw_pos[1]++;
+}
