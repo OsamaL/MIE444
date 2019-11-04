@@ -68,6 +68,8 @@ bool PID::Compute()
       double dInput = (input - lastInput);
       outputSum+= (ki * error);
 
+      if (abs(input) < 0.05) outputSum = 0; // reset ki integral if input is zero
+
       /*Add Proportional on Measurement, if P_ON_M is specified*/
       if(!pOnE) outputSum-= kp * dInput;
 

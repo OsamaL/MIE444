@@ -39,9 +39,9 @@ L298N L_motor(8, 9, 10);
 unsigned long last_oscope_print = 0;
 
 // PID Parameters
-double Kp[2] = {300, 1500};
-double Ki[2] = {2000.00, 500.00};
-double Kd[2] = {20.00, 0.00};
+double Kp[2] = {450, 1300};
+double Ki[2] = {2000.00, 2700.00};
+double Kd[2] = {20.00, 25.00};
 const double spdLimit[2] = {200, 200};
 
 // Raw position from encodersdtostrf() 
@@ -53,8 +53,8 @@ double actual_vel[2] = {0, 0}; // m/s
 volatile long prev_raw_pos[2] = {0, 0}; // in encoder ticks
 volatile long prev_pid_time = 0;
 
-PID L_PID(&actual_vel[0], &output_pwm[0], &goal_vel[0], Kp[0], Ki[0], Kd[0], DIRECT);
-PID R_PID(&actual_vel[1], &output_pwm[1], &goal_vel[1], Kp[1], Ki[1], Kd[1], DIRECT);
+PID L_PID(&actual_vel[0], &output_pwm[0], &goal_vel[0], Kp[0], Ki[0], Kd[0], P_ON_E, DIRECT);
+PID R_PID(&actual_vel[1], &output_pwm[1], &goal_vel[1], Kp[1], Ki[1], Kd[1], P_ON_E, DIRECT);
 
 // Setup ROS
 ros::NodeHandle nh;
@@ -84,7 +84,7 @@ void loop() {
 		goal_vel[0] = 0;
 		goal_vel[1] = 0;
 	} else {
-		goal_vel[0] = 0;
+		goal_vel[0] = 0.1;
 		goal_vel[1] = 0.1;
 	}
 	
@@ -102,11 +102,11 @@ void update_PID() {
 	actual_vel[0] = raw_to_meters[0] * double(raw_pos[0] - prev_raw_pos[0]) / delta_t;
 	actual_vel[1] = raw_to_meters[1] * double(raw_pos[1] - prev_raw_pos[1]) / delta_t;
 
-	Serial.print(" dt ");
-	dtostrf(delta_t, 5, 4, str_temp);
-	Serial.print(str_temp);
+	// Serial.print(" dt ");
+	// dtostrf(delta_t, 5, 4, str_temp);
+	// Serial.print(str_temp);
 	
-	Serial.print(" a_vel ");
+	// Serial.print(" a_vel ");
 	dtostrf(actual_vel[0], 7, 4, str_temp);
 	Serial.print(str_temp);
 	Serial.print(" ");
@@ -127,14 +127,15 @@ void update_PID() {
     L_PID.Compute();
     R_PID.Compute();
 
-	Serial.print(" pwm ");
+	// Serial.print(" pwm ");
 	dtostrf(output_pwm[0], 5, 1, str_temp);
 	Serial.print(str_temp);
 	Serial.print(" ");
 	dtostrf(output_pwm[1], 5, 1, str_temp);
 	Serial.print(str_temp);
 
-	PRINT_oscilloscope(actual_vel[1], goal_vel[1], 1000, 0.0055, 0.1, 0.3);
+	PRINT_oscilloscope(actual_vel[0], goal_vel[0], 1000, 0.0055, 0.05, 0.15);
+	PRINT_oscilloscope(actual_vel[1], goal_vel[1], 1000, 0.0055, 0.05, 0.15);
 }
 
 void setup_PID() {
