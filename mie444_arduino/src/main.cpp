@@ -39,7 +39,7 @@ L298N R_motor(8, 9, 10);
 double Kp[2] = {150, 2000};
 double Ki[2] = {2000.00, 0.00};
 double Kd[2] = {2.00, 0.00};
-const double spdLimit[2] = {255, 255};
+const double spdLimit[2] = {127, 127};
 
 // Raw position from encodersdtostrf() 
 double goal_vel[2] = {0, 0};   // m/s
@@ -64,7 +64,7 @@ void setup() {
 	R_motor.stop();
 	setup_encoders();
 	setup_PID();
-	goal_vel[0] = 0.10;
+	goal_vel[0] = 0.00;
 	goal_vel[1] = 0.00;
 
 	// Setup ROS
@@ -133,14 +133,30 @@ void encoderRightMotor() {
 	else raw_pos[1]++;
 }
 
-void update_motors() {
+void update_motors() {	
 	L_motor.setSpeed(abs(output_pwm[0]));
-	if ( output_pwm[0] < 0) L_motor.forward();
-	else L_motor.backward();
+	if(abs(goal_vel[0]) < 0.0005) {
+		L_motor.stop();
+	} else if ( output_pwm[0] < 0) {
+		L_motor.forward();
+	} else {
+		L_motor.backward();
+	}
 
 	R_motor.setSpeed(abs(output_pwm[1]));
-	if ( output_pwm[1] < 0) R_motor.forward();
-	else R_motor.backward();
+	if(abs(goal_vel[1]) < 0.0005) {
+		R_motor.stop();
+	} else if ( output_pwm[1] < 0) {
+		R_motor.forward();
+	} else {
+		R_motor.backward();
+	}
+
+
+
+	// R_motor.setSpeed(abs(output_pwm[1]));
+	// if ( output_pwm[1] < 0) R_motor.forward();
+	// else R_motor.backward();
 }
 
 void cmd_vel_cb(const geometry_msgs::Twist& twist_input) {
