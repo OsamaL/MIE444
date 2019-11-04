@@ -35,10 +35,13 @@ const double raw_to_meters[2] = {(2.0 * PI * wheel_radius) / ppr[0],
 L298N R_motor(5, 6, 7);
 L298N L_motor(8, 9, 10);
 
+// random globals
+unsigned long last_oscope_print = 0;
+
 // PID Parameters
-double Kp[2] = {200, 2000};
-double Ki[2] = {2000.00, 0.00};
-double Kd[2] = {10.00, 0.00};
+double Kp[2] = {300, 1500};
+double Ki[2] = {2000.00, 500.00};
+double Kd[2] = {20.00, 0.00};
 const double spdLimit[2] = {200, 200};
 
 // Raw position from encodersdtostrf() 
@@ -75,15 +78,19 @@ void setup() {
 }
 
 void loop() {
-	nh.spinOnce();
+	//nh.spinOnce();
 	
-	goal_vel[0] = 0.1;
-	goal_vel[1] = 0.;
-
+	if(millis()/2000%2) {
+		goal_vel[0] = 0;
+		goal_vel[1] = 0;
+	} else {
+		goal_vel[0] = 0;
+		goal_vel[1] = 0.1;
+	}
+	
 	update_PID();
 	update_motors();
 	Serial.println();
-	delay(10);
 }
 
 void update_PID() {
@@ -95,23 +102,23 @@ void update_PID() {
 	actual_vel[0] = raw_to_meters[0] * double(raw_pos[0] - prev_raw_pos[0]) / delta_t;
 	actual_vel[1] = raw_to_meters[1] * double(raw_pos[1] - prev_raw_pos[1]) / delta_t;
 
-	Serial.print(" delta_t ");
+	Serial.print(" dt ");
 	dtostrf(delta_t, 5, 4, str_temp);
 	Serial.print(str_temp);
 	
-	Serial.print(" actual_vel ");
-	dtostrf(actual_vel[0], 5, 4, str_temp);
+	Serial.print(" a_vel ");
+	dtostrf(actual_vel[0], 7, 4, str_temp);
 	Serial.print(str_temp);
 	Serial.print(" ");
-	dtostrf(actual_vel[1], 5, 4, str_temp);
+	dtostrf(actual_vel[1], 7, 4, str_temp);
 	Serial.print(str_temp);
 
-	Serial.print(" raw_pos ");
-	dtostrf(raw_pos[0], 8, 4, str_temp);
-	Serial.print(str_temp);
-	Serial.print(" ");
-	dtostrf(raw_pos[1], 8, 4, str_temp);
-	Serial.print(str_temp);
+	// Serial.print(" raw ");
+	// dtostrf(raw_pos[0], 2, 0, str_temp);
+	// Serial.print(str_temp);
+	// Serial.print(" ");
+	// dtostrf(raw_pos[1], 2, 0, str_temp);
+	// Serial.print(str_temp);
 
 	prev_raw_pos[0] = raw_pos[0];
 	prev_raw_pos[1] = raw_pos[1];
@@ -120,12 +127,14 @@ void update_PID() {
     L_PID.Compute();
     R_PID.Compute();
 
-	Serial.print(" output_pwm ");
-	dtostrf(output_pwm[0], 8, 4, str_temp);
+	Serial.print(" pwm ");
+	dtostrf(output_pwm[0], 5, 1, str_temp);
 	Serial.print(str_temp);
 	Serial.print(" ");
-	dtostrf(output_pwm[1], 8, 4, str_temp);
+	dtostrf(output_pwm[1], 5, 1, str_temp);
 	Serial.print(str_temp);
+
+	PRINT_oscilloscope(actual_vel[1], goal_vel[1], 1000, 0.0055, 0.1, 0.3);
 }
 
 void setup_PID() {
@@ -227,4 +236,23 @@ void cmd_vel_cb(const geometry_msgs::Twist& twist_input) {
 	           " ," + String(goal_angular, 3)).c_str());
 	nh.loginfo(String("goal_vel: " + String(goal_vel[0], 3) +
 	           " ," + String(goal_vel[1], 3)).c_str());
+}
+
+void PRINT_oscilloscope(double val, double goal_val, unsigned long period, double inc, double minf, double maxf){
+	unsigned long t = micros();
+    if (micros() - last_oscope_print > period) {
+		Serial.print(":");
+        for (double i = -minf; i < maxf; i+=inc){
+            if (abs(val - i) <= 0.5*inc){
+                Serial.print('|');
+            } else if (abs(i - goal_val) <= 0.5*inc) {
+                Serial.print('#');
+            } else {
+                Serial.print(' ');
+            }
+        }
+        last_oscope_print = t;
+		Serial.print(":");
+        // Serial.print(last_oscope_print);
+    }
 }
