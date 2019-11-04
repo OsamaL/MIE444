@@ -76,20 +76,35 @@ void setup() {
 
 void loop() {
 	nh.spinOnce();
-	// do some stuff here to assign goal_vel
+	
+	goal_vel[0] = 0.000001;
+	goal_vel[1] = 0.05;
 
 	update_PID();
 	update_motors();
-	delay(10);
+	Serial.println();
 }
 
 void update_PID() {
 	// compute the velocities in m/s from raw_pos
-	long cur_pid_time = millis();
-	double delta_t = 0.001 * double(cur_pid_time - prev_pid_time); // in seconds
+	long cur_pid_time = micros();
+	double delta_t = 0.000001 * double(cur_pid_time - prev_pid_time); // in seconds
 
 	actual_vel[0] = raw_to_meters[0] * double(raw_pos[0] - prev_raw_pos[0]) / delta_t;
 	actual_vel[1] = raw_to_meters[1] * double(raw_pos[1] - prev_raw_pos[1]) / delta_t;
+
+	Serial.print("dt ");
+	Serial.print(delta_t);
+	
+	Serial.print(" actual_vel ");
+	Serial.print(actual_vel[0]);
+	Serial.print(" ");
+	Serial.print(actual_vel[1]);
+
+	Serial.print(" raw_pos ");
+	Serial.print(raw_pos[0]);
+	Serial.print(" ");
+	Serial.print(raw_pos[1]);
 
 	prev_raw_pos[0] = raw_pos[0];
 	prev_raw_pos[1] = raw_pos[1];
@@ -151,19 +166,13 @@ void update_motors() {
 	} else {
 		R_motor.backward();
 	}
-
-
-
-	// R_motor.setSpeed(abs(output_pwm[1]));
-	// if ( output_pwm[1] < 0) R_motor.forward();
-	// else R_motor.backward();
 }
 
 void cmd_vel_cb(const geometry_msgs::Twist& twist_input) {
 	double goal_speed = twist_input.linear.x;
 	double goal_angular = twist_input.angular.z;
-	goal_vel[0] = (2*goal_speed - goal_angular*wheelbase)/(2);
-	goal_vel[1] = (2*goal_speed + goal_angular*wheelbase)/(2);
+	// goal_vel[0] = (2*goal_speed - goal_angular*wheelbase)/(2);
+	// goal_vel[1] = (2*goal_speed + goal_angular*wheelbase)/(2);
 	nh.loginfo(String("Got cmd_vel: " + String(goal_speed, 3) +
 	           " ," + String(goal_angular, 3)).c_str());
 	nh.loginfo(String("goal_vel: " + String(goal_vel[0], 3) +
