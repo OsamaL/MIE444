@@ -23,23 +23,23 @@ const int RIGHT_ENC_B = 21;              //B channel for encoder of right motor
 const int ENCODER_TICKS_PER_REV = 32;
 const int ENCODER_TICKS_TOLERANCE = 1; //32 ticks if counting rising and falling for one encoder channel
 
-const double wheel_radius = 0.034;                   //Wheel wheel_, in m
+const double wheel_radius = 0.034/2.0;                   //Wheel wheel_, in m
 const double wheelbase = 0.2;                        //Wheelbase, in m
 
-const double ppr[2] = {5909.0/20.0, 10332.0/20.0};
-const double raw_to_meters[2] = {2 * PI * wheel_radius / ppr[0],
-                                 2 * PI * wheel_radius / ppr[1]};
+const double ppr[2] = {23636.0/20.0, 41454.0/20.0};
+const double raw_to_meters[2] = {(2.0 * PI * wheel_radius) / ppr[0],
+                                 (2.0 * PI * wheel_radius) / ppr[1]};
 
 // Define motors
 // EN, IN1, IN2
-L298N L_motor(5, 6, 7);
-L298N R_motor(8, 9, 10);
+L298N R_motor(5, 6, 7);
+L298N L_motor(8, 9, 10);
 
 // PID Parameters
-double Kp[2] = {150, 2000};
+double Kp[2] = {200, 2000};
 double Ki[2] = {2000.00, 0.00};
-double Kd[2] = {2.00, 0.00};
-const double spdLimit[2] = {127, 127};
+double Kd[2] = {10.00, 0.00};
+const double spdLimit[2] = {200, 200};
 
 // Raw position from encodersdtostrf() 
 double goal_vel[2] = {0, 0};   // m/s
@@ -77,15 +77,17 @@ void setup() {
 void loop() {
 	nh.spinOnce();
 	
-	goal_vel[0] = 0.000001;
-	goal_vel[1] = 0.05;
+	goal_vel[0] = 0.1;
+	goal_vel[1] = 0.;
 
 	update_PID();
 	update_motors();
 	Serial.println();
+	delay(10);
 }
 
 void update_PID() {
+	char str_temp[7];
 	// compute the velocities in m/s from raw_pos
 	long cur_pid_time = micros();
 	double delta_t = 0.000001 * double(cur_pid_time - prev_pid_time); // in seconds
@@ -93,18 +95,23 @@ void update_PID() {
 	actual_vel[0] = raw_to_meters[0] * double(raw_pos[0] - prev_raw_pos[0]) / delta_t;
 	actual_vel[1] = raw_to_meters[1] * double(raw_pos[1] - prev_raw_pos[1]) / delta_t;
 
-	Serial.print("dt ");
-	Serial.print(delta_t);
+	Serial.print(" delta_t ");
+	dtostrf(delta_t, 5, 4, str_temp);
+	Serial.print(str_temp);
 	
 	Serial.print(" actual_vel ");
-	Serial.print(actual_vel[0]);
+	dtostrf(actual_vel[0], 5, 4, str_temp);
+	Serial.print(str_temp);
 	Serial.print(" ");
-	Serial.print(actual_vel[1]);
+	dtostrf(actual_vel[1], 5, 4, str_temp);
+	Serial.print(str_temp);
 
 	Serial.print(" raw_pos ");
-	Serial.print(raw_pos[0]);
+	dtostrf(raw_pos[0], 8, 4, str_temp);
+	Serial.print(str_temp);
 	Serial.print(" ");
-	Serial.print(raw_pos[1]);
+	dtostrf(raw_pos[1], 8, 4, str_temp);
+	Serial.print(str_temp);
 
 	prev_raw_pos[0] = raw_pos[0];
 	prev_raw_pos[1] = raw_pos[1];
@@ -112,6 +119,13 @@ void update_PID() {
 
     L_PID.Compute();
     R_PID.Compute();
+
+	Serial.print(" output_pwm ");
+	dtostrf(output_pwm[0], 8, 4, str_temp);
+	Serial.print(str_temp);
+	Serial.print(" ");
+	dtostrf(output_pwm[1], 8, 4, str_temp);
+	Serial.print(str_temp);
 }
 
 void setup_PID() {
@@ -126,14 +140,50 @@ void setup_encoders() {
 	pinMode(LEFT_ENC_B, INPUT); 
 	digitalWrite(LEFT_ENC_A, HIGH);                // turn on pullup resistor
 	digitalWrite(LEFT_ENC_B, HIGH);
-	attachInterrupt(digitalPinToInterrupt(LEFT_ENC_A), encoderLeftMotor, RISING);
+	attachInterrupt(digitalPinToInterrupt(LEFT_ENC_A), LEFT_ENC_A_handler, CHANGE);
+	attachInterrupt(digitalPinToInterrupt(LEFT_ENC_B), LEFT_ENC_B_handler, CHANGE);
 
 	// Define the rotary encoder for right motor
 	pinMode(RIGHT_ENC_A, INPUT); 
 	pinMode(RIGHT_ENC_B, INPUT); 
 	digitalWrite(RIGHT_ENC_A, HIGH);                // turn on pullup resistor
 	digitalWrite(RIGHT_ENC_B, HIGH);
-	attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_A), encoderRightMotor, RISING);
+	attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_A), RIGHT_ENC_A_handler, CHANGE);
+	attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_B), RIGHT_ENC_B_handler, CHANGE);
+}
+
+// Encoder handlers
+
+void LEFT_ENC_A_handler() {
+    if (digitalRead(LEFT_ENC_A)) { // rising edge
+        digitalRead(LEFT_ENC_B) ? raw_pos[0]-- : raw_pos[0]++;
+    } else { // falling edge
+        digitalRead(LEFT_ENC_B) ? raw_pos[0]++ : raw_pos[0]--;
+    }
+}
+
+void LEFT_ENC_B_handler() {
+    if (digitalRead(LEFT_ENC_B)) { // rising edge
+        digitalRead(LEFT_ENC_A) ? raw_pos[0]++ : raw_pos[0]--;
+    } else { // falling edge
+        digitalRead(LEFT_ENC_A) ? raw_pos[0]-- : raw_pos[0]++;
+    }
+}
+
+void RIGHT_ENC_A_handler() {
+    if (digitalRead(RIGHT_ENC_A)) { // rising edge
+        digitalRead(RIGHT_ENC_B) ? raw_pos[1]-- : raw_pos[1]++;
+    } else { // falling edge
+        digitalRead(RIGHT_ENC_B) ? raw_pos[1]++ : raw_pos[1]--;
+    }
+}
+
+void RIGHT_ENC_B_handler() {
+    if (digitalRead(RIGHT_ENC_B)) { // rising edge
+        digitalRead(RIGHT_ENC_A) ? raw_pos[1]++ : raw_pos[1]--;
+    } else { // falling edge
+        digitalRead(RIGHT_ENC_A) ? raw_pos[1]-- : raw_pos[1]++;
+    }
 }
 
 //Left motor encoder counter
@@ -150,7 +200,7 @@ void encoderRightMotor() {
 
 void update_motors() {	
 	L_motor.setSpeed(abs(output_pwm[0]));
-	if(abs(goal_vel[0]) < 0.0005) {
+	if(abs(goal_vel[0]) < -0.0005) {
 		L_motor.stop();
 	} else if ( output_pwm[0] < 0) {
 		L_motor.forward();
@@ -159,7 +209,7 @@ void update_motors() {
 	}
 
 	R_motor.setSpeed(abs(output_pwm[1]));
-	if(abs(goal_vel[1]) < 0.0005) {
+	if(abs(goal_vel[1]) < -0.0005) {
 		R_motor.stop();
 	} else if ( output_pwm[1] < 0) {
 		R_motor.forward();
