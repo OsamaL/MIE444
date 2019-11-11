@@ -9,6 +9,7 @@ void setup_encoders();
 void update_motors();
 void cmd_vel_cb(const geometry_msgs::Twist& twist_input);
 void PRINT_oscilloscope(double val, double goal_val, unsigned long period, double inc, double minf, double maxf);
+void test_cmd_vel_cb(double goal_speed, double goal_angular);
 
 void LEFT_ENC_A_handler();
 void LEFT_ENC_B_handler();

@@ -29,6 +29,8 @@ const double wheelbase = 0.2;                        //Wheelbase, in m
 const double ppr[2] = {23636.0/20.0, 41454.0/20.0};
 const double raw_to_meters[2] = {(2.0 * PI * wheel_radius) / ppr[0],
                                  (2.0 * PI * wheel_radius) / ppr[1]};
+const double meters_to_raw[2] = {1.0/raw_to_meters[0],
+                                 1.0/raw_to_meters[1]};
 
 // Define motors
 // EN, IN1, IN2
@@ -39,22 +41,23 @@ L298N L_motor(8, 9, 10);
 unsigned long last_oscope_print = 0;
 
 // PID Parameters
-double Kp[2] = {450, 1300};
-double Ki[2] = {2000.00, 2700.00};
-double Kd[2] = {20.00, 25.00};
+double Kp[2] = {2500, 3700};
+double Ki[2] = {1000.0, 800.00};
+double Kd[2] = {250.00, 100.0};
 const double spdLimit[2] = {200, 200};
 
 // Raw position from encodersdtostrf() 
-double goal_vel[2] = {0, 0};   // m/s
+double goal_speed = 0;
+double goal_angular = 0;
+double goal_pos[2] = {0, 0};   // m
 volatile long raw_pos[2];      // in encoder ticks
 double output_pwm[2] = {0, 0};
-double actual_vel[2] = {0, 0}; // m/s
+double actual_pos[2] = {0, 0}; // m/s
 
-volatile long prev_raw_pos[2] = {0, 0}; // in encoder ticks
-volatile long prev_pid_time = 0;
+volatile long prev_time = 0;
 
-PID L_PID(&actual_vel[0], &output_pwm[0], &goal_vel[0], Kp[0], Ki[0], Kd[0], P_ON_E, DIRECT);
-PID R_PID(&actual_vel[1], &output_pwm[1], &goal_vel[1], Kp[1], Ki[1], Kd[1], P_ON_E, DIRECT);
+PID L_PID(&actual_pos[0], &output_pwm[0], &goal_pos[0], Kp[0], Ki[0], Kd[0], P_ON_E, DIRECT);
+PID R_PID(&actual_pos[1], &output_pwm[1], &goal_pos[1], Kp[1], Ki[1], Kd[1], P_ON_E, DIRECT);
 
 // Setup ROS
 ros::NodeHandle nh;
@@ -67,8 +70,8 @@ void setup() {
 	R_motor.stop();
 	setup_encoders();
 	setup_PID();
-	goal_vel[0] = 0.00;
-	goal_vel[1] = 0.00;
+	goal_pos[0] = 0.00;
+	goal_pos[1] = 0.00;
 
 	// Setup ROS
 	nh.getHardware()->setBaud(115200);
@@ -78,40 +81,38 @@ void setup() {
 }
 
 void loop() {
-	//nh.spinOnce();
+	nh.spinOnce();
 	
-	if(millis()/2000%2) {
-		goal_vel[0] = 0;
-		goal_vel[1] = 0;
-	} else {
-		goal_vel[0] = 0.1;
-		goal_vel[1] = 0.1;
-	}
+	// if(millis()/3000%2) {
+	// 	test_cmd_vel_cb(-0.1, 0);
+	// } else {
+	// 	test_cmd_vel_cb(0.1, 0);
+	// }
 	
 	update_PID();
 	update_motors();
-	Serial.println();
+	// Serial.println();
 }
 
 void update_PID() {
 	char str_temp[7];
-	// compute the velocities in m/s from raw_pos
-	long cur_pid_time = micros();
-	double delta_t = 0.000001 * double(cur_pid_time - prev_pid_time); // in seconds
 
-	actual_vel[0] = raw_to_meters[0] * double(raw_pos[0] - prev_raw_pos[0]) / delta_t;
-	actual_vel[1] = raw_to_meters[1] * double(raw_pos[1] - prev_raw_pos[1]) / delta_t;
+	actual_pos[0] = raw_to_meters[0] * raw_pos[0];
+	actual_pos[1] = raw_to_meters[1] * raw_pos[1];
 
-	// Serial.print(" dt ");
-	// dtostrf(delta_t, 5, 4, str_temp);
-	// Serial.print(str_temp);
+	// integrate the velocity into a desired position
+	long cur_time = micros();
+	double delta_t = 0.000001 * double(cur_time - prev_time); // in seconds
 	
+	goal_pos[0] += delta_t * (2.0*goal_speed - goal_angular*wheelbase)/2.0;
+	goal_pos[1] += delta_t * (2.0*goal_speed + goal_angular*wheelbase)/2.0;
+
 	// Serial.print(" a_vel ");
-	dtostrf(actual_vel[0], 7, 4, str_temp);
-	Serial.print(str_temp);
-	Serial.print(" ");
-	dtostrf(actual_vel[1], 7, 4, str_temp);
-	Serial.print(str_temp);
+	// dtostrf(actual_pos[0], 7, 4, str_temp);
+	// Serial.print(str_temp);
+	// Serial.print(" ");
+	// dtostrf(actual_pos[1], 7, 4, str_temp);
+	// Serial.print(str_temp);
 
 	// Serial.print(" raw ");
 	// dtostrf(raw_pos[0], 2, 0, str_temp);
@@ -120,22 +121,22 @@ void update_PID() {
 	// dtostrf(raw_pos[1], 2, 0, str_temp);
 	// Serial.print(str_temp);
 
-	prev_raw_pos[0] = raw_pos[0];
-	prev_raw_pos[1] = raw_pos[1];
-	prev_pid_time = cur_pid_time;
-
     L_PID.Compute();
     R_PID.Compute();
 
 	// Serial.print(" pwm ");
-	dtostrf(output_pwm[0], 5, 1, str_temp);
-	Serial.print(str_temp);
-	Serial.print(" ");
-	dtostrf(output_pwm[1], 5, 1, str_temp);
-	Serial.print(str_temp);
+	// dtostrf(output_pwm[0], 5, 1, str_temp);
+	// Serial.print(str_temp);
+	// Serial.print(" ");
+	// dtostrf(output_pwm[1], 5, 1, str_temp);
+	// Serial.print(str_temp);
 
-	PRINT_oscilloscope(actual_vel[0], goal_vel[0], 1000, 0.0055, 0.05, 0.15);
-	PRINT_oscilloscope(actual_vel[1], goal_vel[1], 1000, 0.0055, 0.05, 0.15);
+	// PRINT_oscilloscope(actual_pos[0], goal_pos[0], 1000, 0.0055, 0.1, 0.4);
+	// PRINT_oscilloscope(actual_pos[1], goal_pos[1], 1000, 0.0055, 0.1, 0.4);
+	
+	// PRINT_oscilloscope(actual_pos[0]-goal_pos[0], 0, 1000, 0.0055, 0.1, 0.1);
+	// PRINT_oscilloscope(actual_pos[1]-goal_pos[1], 0, 1000, 0.0055, 0.1, 0.1);
+	prev_time = cur_time;
 }
 
 void setup_PID() {
@@ -210,18 +211,14 @@ void encoderRightMotor() {
 
 void update_motors() {	
 	L_motor.setSpeed(abs(output_pwm[0]));
-	if(abs(goal_vel[0]) < -0.0005) {
-		L_motor.stop();
-	} else if ( output_pwm[0] < 0) {
+	if ( output_pwm[0] < 0) {
 		L_motor.forward();
 	} else {
 		L_motor.backward();
 	}
 
 	R_motor.setSpeed(abs(output_pwm[1]));
-	if(abs(goal_vel[1]) < -0.0005) {
-		R_motor.stop();
-	} else if ( output_pwm[1] < 0) {
+	if ( output_pwm[1] < 0) {
 		R_motor.forward();
 	} else {
 		R_motor.backward();
@@ -229,14 +226,13 @@ void update_motors() {
 }
 
 void cmd_vel_cb(const geometry_msgs::Twist& twist_input) {
-	double goal_speed = twist_input.linear.x;
-	double goal_angular = twist_input.angular.z;
-	// goal_vel[0] = (2*goal_speed - goal_angular*wheelbase)/(2);
-	// goal_vel[1] = (2*goal_speed + goal_angular*wheelbase)/(2);
+	goal_speed = twist_input.linear.x;
+	goal_angular = twist_input.angular.z;
+
 	nh.loginfo(String("Got cmd_vel: " + String(goal_speed, 3) +
 	           " ," + String(goal_angular, 3)).c_str());
-	nh.loginfo(String("goal_vel: " + String(goal_vel[0], 3) +
-	           " ," + String(goal_vel[1], 3)).c_str());
+	nh.loginfo(String("goal_pos: " + String(goal_pos[0], 3) +
+	           " ," + String(goal_pos[1], 3)).c_str());
 }
 
 void PRINT_oscilloscope(double val, double goal_val, unsigned long period, double inc, double minf, double maxf){
