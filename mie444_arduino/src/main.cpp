@@ -4,13 +4,16 @@
 #include <Wire.h>
 #include <PID_v1.h>
 #include <ros.h>
-// #include <std_msgs/String.h>
+#include <std_msgs/String.h>
 // #include <geometry_msgs/Vector3Stamped.h>
 #include <geometry_msgs/Twist.h>
 // #include <nav_msgs/Odometry.h>
 // #include <ros/time.h>
 // #include <stdlib.h>
 #include <main.h>
+#include <Servo.h>
+
+Servo grip_servo;
 
 //initializing all the variables
 const int LOOPTIME = 100;     //Looptime in millisecond
@@ -64,8 +67,11 @@ ros::NodeHandle nh;
 
 ros::Subscriber<geometry_msgs::Twist> cmd_vel("/cmd_vel", cmd_vel_cb);
 
+ros::Subscriber<std_msgs::String> cmd_special("/cmd_special", cmd_special_cb);
+
 void setup() {
 	delay(100); // This fixes the PID NaN issues. it's spooky.
+	grip_servo.attach(11);
 	L_motor.stop();
 	R_motor.stop();
 	setup_encoders();
@@ -78,6 +84,7 @@ void setup() {
 	nh.initNode();
 	nh.loginfo("Node initialized");
 	nh.subscribe(cmd_vel);
+	nh.subscribe(cmd_special);
 }
 
 void loop() {
@@ -224,6 +231,19 @@ void update_motors() {
 		R_motor.backward();
 	}
 }
+
+void cmd_special_cb(const std_msgs::String& str) {
+	String s(str.data);
+	if (s == String("open")) {
+		grip_servo.write(130);
+		nh.loginfo(String("opening").c_str());
+	} else if (s == String("close")) {
+		grip_servo.write(0);
+		nh.loginfo(String("closing").c_str());
+	}
+	nh.loginfo(String("got cmd_special: " + String(str.data)).c_str());
+}
+
 
 void cmd_vel_cb(const geometry_msgs::Twist& twist_input) {
 	goal_speed = twist_input.linear.x;
