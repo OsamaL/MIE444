@@ -11,7 +11,7 @@ void cmd_vel_cb(const geometry_msgs::Twist& twist_input);
 void cmd_special_cb(const std_msgs::String& str);
 void PRINT_oscilloscope(double val, double goal_val, unsigned long period, double inc, double minf, double maxf);
 void test_cmd_vel_cb(double goal_speed, double goal_angular);
-void update_tf();
+void update_odom();
 
 void LEFT_ENC_A_handler();
 void LEFT_ENC_B_handler();

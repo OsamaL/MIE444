@@ -5,9 +5,10 @@
 #include <PID_v1.h>
 #include <ros.h>
 #include <std_msgs/String.h>
+#include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/Pose.h>
 #include <ros/time.h>
-#include <tf/transform_broadcaster.h>
 #include <main.h>
 #include <Servo.h>
 
@@ -67,10 +68,8 @@ ros::Subscriber<geometry_msgs::Twist> cmd_vel("/cmd_vel", cmd_vel_cb);
 
 ros::Subscriber<std_msgs::String> cmd_special("/cmd_special", cmd_special_cb);
 
-geometry_msgs::TransformStamped t;
-tf::TransformBroadcaster broadcaster;
-char base_link[] = "/base_link";
-char odom[] = "/odom";
+nav_msgs::Odometry odom_msg;
+ros::Publisher odom("odom", &odom_msg);
 
 void setup() {
 	delay(100); // This fixes the PID NaN issues. it's spooky.
@@ -88,14 +87,12 @@ void setup() {
 	nh.loginfo("Node initialized");
 	nh.subscribe(cmd_vel);
 	nh.subscribe(cmd_special);
-
-	// Setup TF stuff
-	broadcaster.init(nh);
+	nh.advertise(odom);
 }
 
 void loop() {
 	nh.spinOnce();
-	update_tf();
+	uupdate_odom();
 	update_PID();
 	update_motors();
 }
@@ -273,12 +270,16 @@ void PRINT_oscilloscope(double val, double goal_val, unsigned long period, doubl
     }
 }
 
-void update_tf()
+void uupdate_odom()
 {
 	static double x_pos = 0;
 	static double y_pos = 0;
 	static double th_pos = 0;
 	static long old_raw_pos[] = {0, 0};
+	static long old_micros = micros();
+
+	long new_micros = micros();
+	double dt = new_micros - old_micros;
 
 	long new_raw_pos[] = {raw_pos[0], raw_pos[1]};
 	int d_encoder[2];
@@ -301,17 +302,32 @@ void update_tf()
 		th_pos += 2.0 * PI;
 	}
 
-	t.header.frame_id = odom;
-	t.child_frame_id = base_link;
-	t.transform.translation.x = x_pos;
-	t.transform.translation.y = y_pos;
-	t.transform.rotation.x = 0.0;
-	t.transform.rotation.y = 0.0;
-	t.transform.rotation.z = sin(th_pos * 0.5);
-	t.transform.rotation.w = cos(th_pos * 0.5);
-	t.header.stamp = nh.now();
-	broadcaster.sendTransform(t);
+	// Header header
+	// string child_frame_id
+	// geometry_msgs/PoseWithCovariance pose
+	// geometry_msgs/TwistWithCovariance twist
+
+	odom_msg.pose.pose.position.x = x_pos;
+	odom_msg.pose.pose.position.y = y_pos;
+	odom_msg.pose.pose.position.z = 0.0;
+
+	odom_msg.pose.pose.orientation.x = 0.0;
+	odom_msg.pose.pose.orientation.y = 0.0;
+	odom_msg.pose.pose.orientation.z = sin(th_pos * 0.5);
+	odom_msg.pose.pose.orientation.w = cos(th_pos * 0.5);
+
+	odom_msg.pose.pose.position.x = d_center/dt;
+	odom_msg.pose.pose.position.y = 0.0;
+	odom_msg.pose.pose.position.z = 0.0;
+
+	odom_msg.pose.pose.orientation.x = 0.0;
+	odom_msg.pose.pose.orientation.y = 0.0;
+	odom_msg.pose.pose.orientation.z = sin(th_pos * 0.5);
+	odom_msg.pose.pose.orientation.w = cos(th_pos * 0.5);
+
+	odom_msg.header.stamp = nh.now();
 
 	old_raw_pos[0] = new_raw_pos[0];
 	old_raw_pos[1] = new_raw_pos[1];
+	old_micros = new_micros;
 }
