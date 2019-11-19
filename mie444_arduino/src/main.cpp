@@ -5,11 +5,9 @@
 #include <PID_v1.h>
 #include <ros.h>
 #include <std_msgs/String.h>
-// #include <geometry_msgs/Vector3Stamped.h>
 #include <geometry_msgs/Twist.h>
-// #include <nav_msgs/Odometry.h>
-// #include <ros/time.h>
-// #include <stdlib.h>
+#include <ros/time.h>
+#include <tf/transform_broadcaster.h>
 #include <main.h>
 #include <Servo.h>
 
@@ -69,6 +67,11 @@ ros::Subscriber<geometry_msgs::Twist> cmd_vel("/cmd_vel", cmd_vel_cb);
 
 ros::Subscriber<std_msgs::String> cmd_special("/cmd_special", cmd_special_cb);
 
+geometry_msgs::TransformStamped t;
+tf::TransformBroadcaster broadcaster;
+char base_link[] = "/base_link";
+char odom[] = "/odom";
+
 void setup() {
 	delay(100); // This fixes the PID NaN issues. it's spooky.
 	grip_servo.attach(11);
@@ -85,20 +88,16 @@ void setup() {
 	nh.loginfo("Node initialized");
 	nh.subscribe(cmd_vel);
 	nh.subscribe(cmd_special);
+
+	// Setup TF stuff
+	broadcaster.init(nh);
 }
 
 void loop() {
 	nh.spinOnce();
-	
-	// if(millis()/3000%2) {
-	// 	test_cmd_vel_cb(-0.1, 0);
-	// } else {
-	// 	test_cmd_vel_cb(0.1, 0);
-	// }
-	
+	update_tf();
 	update_PID();
 	update_motors();
-	// Serial.println();
 }
 
 void update_PID() {
@@ -272,4 +271,47 @@ void PRINT_oscilloscope(double val, double goal_val, unsigned long period, doubl
 		Serial.print(":");
         // Serial.print(last_oscope_print);
     }
+}
+
+void update_tf()
+{
+	static double x_pos = 0;
+	static double y_pos = 0;
+	static double th_pos = 0;
+	static long old_raw_pos[] = {0, 0};
+
+	long new_raw_pos[] = {raw_pos[0], raw_pos[1]};
+	int d_encoder[2];
+
+	d_encoder[0] = new_raw_pos[0] - old_raw_pos[0];
+	d_encoder[1] = new_raw_pos[1] - old_raw_pos[1];
+
+	double d_center  = (d_encoder[0] * raw_to_meters[0]
+	                  + d_encoder[1] * raw_to_meters[0]) / 2.0;
+	double d_th      = (d_encoder[1] * raw_to_meters[1]
+	                  - d_encoder[0] * raw_to_meters[0]) / wheelbase;
+
+	x_pos += d_center * cos(th_pos);
+	y_pos += d_center * sin(th_pos);
+	th_pos += d_th;
+
+	if (th_pos >= 2.0 * PI) {
+		th_pos -= 2.0 * PI;
+	} else if (th_pos <= -2.0 * PI) {
+		th_pos += 2.0 * PI;
+	}
+
+	t.header.frame_id = odom;
+	t.child_frame_id = base_link;
+	t.transform.translation.x = x_pos;
+	t.transform.translation.y = y_pos;
+	t.transform.rotation.x = 0.0;
+	t.transform.rotation.y = 0.0;
+	t.transform.rotation.z = sin(th_pos * 0.5);
+	t.transform.rotation.w = cos(th_pos * 0.5);
+	t.header.stamp = nh.now();
+	broadcaster.sendTransform(t);
+
+	old_raw_pos[0] = new_raw_pos[0];
+	old_raw_pos[1] = new_raw_pos[1];
 }
