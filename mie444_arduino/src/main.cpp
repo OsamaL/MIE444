@@ -70,6 +70,8 @@ ros::Subscriber<std_msgs::String> cmd_special("/cmd_special", cmd_special_cb);
 
 nav_msgs::Odometry odom_msg;
 ros::Publisher odom("odom", &odom_msg);
+char base_link_tf[] = "/base_link";
+char odom_tf[] = "/odom";
 
 void setup() {
 	delay(100); // This fixes the PID NaN issues. it's spooky.
@@ -92,14 +94,12 @@ void setup() {
 
 void loop() {
 	nh.spinOnce();
-	uupdate_odom();
+	update_odom();
 	update_PID();
 	update_motors();
 }
 
 void update_PID() {
-	char str_temp[7];
-
 	actual_pos[0] = raw_to_meters[0] * raw_pos[0];
 	actual_pos[1] = raw_to_meters[1] * raw_pos[1];
 
@@ -270,13 +270,14 @@ void PRINT_oscilloscope(double val, double goal_val, unsigned long period, doubl
     }
 }
 
-void uupdate_odom()
+void update_odom()
 {
 	static double x_pos = 0;
 	static double y_pos = 0;
 	static double th_pos = 0;
 	static long old_raw_pos[] = {0, 0};
 	static long old_micros = micros();
+	static long seq_count = 0;
 
 	long new_micros = micros();
 	double dt = new_micros - old_micros;
@@ -307,6 +308,8 @@ void uupdate_odom()
 	// geometry_msgs/PoseWithCovariance pose
 	// geometry_msgs/TwistWithCovariance twist
 
+	
+
 	odom_msg.pose.pose.position.x = x_pos;
 	odom_msg.pose.pose.position.y = y_pos;
 	odom_msg.pose.pose.position.z = 0.0;
@@ -316,16 +319,18 @@ void uupdate_odom()
 	odom_msg.pose.pose.orientation.z = sin(th_pos * 0.5);
 	odom_msg.pose.pose.orientation.w = cos(th_pos * 0.5);
 
-	odom_msg.pose.pose.position.x = d_center/dt;
-	odom_msg.pose.pose.position.y = 0.0;
-	odom_msg.pose.pose.position.z = 0.0;
+	odom_msg.twist.twist.linear.x = d_center/dt;
+	odom_msg.twist.twist.linear.y = 0.0;
+	odom_msg.twist.twist.linear.z = 0.0;
 
-	odom_msg.pose.pose.orientation.x = 0.0;
-	odom_msg.pose.pose.orientation.y = 0.0;
-	odom_msg.pose.pose.orientation.z = sin(th_pos * 0.5);
-	odom_msg.pose.pose.orientation.w = cos(th_pos * 0.5);
+	odom_msg.twist.twist.angular.x = 0.0;
+	odom_msg.twist.twist.angular.y = 0.0;
+	odom_msg.twist.twist.angular.z = d_th/dt;
 
+	odom_msg.header.seq = seq_count++;
 	odom_msg.header.stamp = nh.now();
+	odom_msg.header.frame_id = odom_tf;
+	odom_msg.child_frame_id = base_link_tf;
 
 	old_raw_pos[0] = new_raw_pos[0];
 	old_raw_pos[1] = new_raw_pos[1];
