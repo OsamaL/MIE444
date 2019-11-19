@@ -303,13 +303,6 @@ void update_odom()
 		th_pos += 2.0 * PI;
 	}
 
-	// Header header
-	// string child_frame_id
-	// geometry_msgs/PoseWithCovariance pose
-	// geometry_msgs/TwistWithCovariance twist
-
-	
-
 	odom_msg.pose.pose.position.x = x_pos;
 	odom_msg.pose.pose.position.y = y_pos;
 	odom_msg.pose.pose.position.z = 0.0;
