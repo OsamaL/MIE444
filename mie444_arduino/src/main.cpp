@@ -316,7 +316,6 @@ void update_odom()
 	odom_msg.twist.twist.linear.y = 0.0;
 	odom_msg.twist.twist.linear.z = 0.0;
 
-	odom_msg.twist.twist.angular.x = 0.0;
 	odom_msg.twist.twist.angular.y = 0.0;
 	odom_msg.twist.twist.angular.z = d_th/dt;
 
