@@ -5,7 +5,6 @@
 #include <PID_v1.h>
 #include <ros.h>
 #include <std_msgs/String.h>
-#include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Pose.h>
 #include <ros/time.h>
@@ -68,8 +67,13 @@ ros::Subscriber<geometry_msgs::Twist> cmd_vel("/cmd_vel", cmd_vel_cb);
 
 ros::Subscriber<std_msgs::String> cmd_special("/cmd_special", cmd_special_cb);
 
-nav_msgs::Odometry odom_msg;
-ros::Publisher odom("odom", &odom_msg);
+// nav_msgs::Odometry odom_msg;
+// ros::Publisher odom("odom", &odom_msg);
+geometry_msgs::Pose pose_msg;
+ros::Publisher pose_pub("/pose", &pose_msg);
+
+
+
 char base_link_tf[] = "/base_link";
 char odom_tf[] = "/odom";
 
@@ -89,7 +93,7 @@ void setup() {
 	nh.loginfo("Node initialized");
 	nh.subscribe(cmd_vel);
 	nh.subscribe(cmd_special);
-	nh.advertise(odom);
+	nh.advertise(pose_pub);
 }
 
 void loop() {
@@ -303,26 +307,35 @@ void update_odom()
 		th_pos += 2.0 * PI;
 	}
 
-	odom_msg.pose.pose.position.x = x_pos;
-	odom_msg.pose.pose.position.y = y_pos;
-	odom_msg.pose.pose.position.z = 0.0;
+	pose_msg.position.x = x_pos;
+	pose_msg.position.y = y_pos;
+	pose_msg.position.z = 0.0;
 
-	odom_msg.pose.pose.orientation.x = 0.0;
-	odom_msg.pose.pose.orientation.y = 0.0;
-	odom_msg.pose.pose.orientation.z = sin(th_pos * 0.5);
-	odom_msg.pose.pose.orientation.w = cos(th_pos * 0.5);
+	pose_msg.orientation.x = 0.0;
+	pose_msg.orientation.y = 0.0;
+	pose_msg.orientation.z = sin(th_pos * 0.5);
+	pose_msg.orientation.w = cos(th_pos * 0.5);
 
-	odom_msg.twist.twist.linear.x = d_center/dt;
-	odom_msg.twist.twist.linear.y = 0.0;
-	odom_msg.twist.twist.linear.z = 0.0;
+	// odom_msg.pose.pose.position.x = x_pos;
+	// odom_msg.pose.pose.position.y = y_pos;
+	// odom_msg.pose.pose.position.z = 0.0;
 
-	odom_msg.twist.twist.angular.y = 0.0;
-	odom_msg.twist.twist.angular.z = d_th/dt;
+	// odom_msg.pose.pose.orientation.x = 0.0;
+	// odom_msg.pose.pose.orientation.y = 0.0;
+	// odom_msg.pose.pose.orientation.z = sin(th_pos * 0.5);
+	// odom_msg.pose.pose.orientation.w = cos(th_pos * 0.5);
 
-	odom_msg.header.seq = seq_count++;
-	odom_msg.header.stamp = nh.now();
-	odom_msg.header.frame_id = odom_tf;
-	odom_msg.child_frame_id = base_link_tf;
+	// odom_msg.twist.twist.linear.x = d_center/dt;
+	// odom_msg.twist.twist.linear.y = 0.0;
+	// odom_msg.twist.twist.linear.z = 0.0;
+
+	// odom_msg.twist.twist.angular.y = 0.0;
+	// odom_msg.twist.twist.angular.z = d_th/dt;
+
+	// odom_msg.header.seq = seq_count++;
+	// odom_msg.header.stamp = nh.now();
+	// odom_msg.header.frame_id = odom_tf;
+	// odom_msg.child_frame_id = base_link_tf;
 
 	old_raw_pos[0] = new_raw_pos[0];
 	old_raw_pos[1] = new_raw_pos[1];
