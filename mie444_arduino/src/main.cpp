@@ -69,7 +69,7 @@ ros::Subscriber<geometry_msgs::Twist> cmd_vel("/cmd_vel", cmd_vel_cb);
 ros::Subscriber<std_msgs::String> cmd_special("/cmd_special", cmd_special_cb);
 
 nav_msgs::Odometry odom_msg;
-ros::Publisher odom("odom", &odom_msg);
+ros::Publisher odom_pub("odom", &odom_msg);
 char base_link_tf[] = "/base_link";
 char odom_tf[] = "/odom";
 
@@ -89,7 +89,7 @@ void setup() {
 	nh.loginfo("Node initialized");
 	nh.subscribe(cmd_vel);
 	nh.subscribe(cmd_special);
-	nh.advertise(odom);
+	nh.advertise(odom_pub);
 }
 
 void loop() {
@@ -323,6 +323,8 @@ void update_odom()
 	odom_msg.header.stamp = nh.now();
 	odom_msg.header.frame_id = odom_tf;
 	odom_msg.child_frame_id = base_link_tf;
+
+	odom_pub.publish( &odom_msg );
 
 	old_raw_pos[0] = new_raw_pos[0];
 	old_raw_pos[1] = new_raw_pos[1];
