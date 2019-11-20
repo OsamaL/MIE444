@@ -72,8 +72,6 @@ ros::Subscriber<std_msgs::String> cmd_special("/cmd_special", cmd_special_cb);
 geometry_msgs::Pose pose_msg;
 ros::Publisher pose_pub("/pose", &pose_msg);
 
-
-
 char base_link_tf[] = "/base_link";
 char odom_tf[] = "/odom";
 
@@ -335,7 +333,9 @@ void update_odom()
 	// odom_msg.header.seq = seq_count++;
 	// odom_msg.header.stamp = nh.now();
 	// odom_msg.header.frame_id = odom_tf;
-	// odom_msg.child_frame_id = base_link_tf;
+	// odom_msg.child_frame_id = base_link_tf;	
+
+	pose_pub.publish(&pose_msg);
 
 	old_raw_pos[0] = new_raw_pos[0];
 	old_raw_pos[1] = new_raw_pos[1];
