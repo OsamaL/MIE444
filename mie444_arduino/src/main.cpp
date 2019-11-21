@@ -25,10 +25,10 @@ const int RIGHT_ENC_B = 21;              //B channel for encoder of right motor
 const int ENCODER_TICKS_PER_REV = 32;
 const int ENCODER_TICKS_TOLERANCE = 1; //32 ticks if counting rising and falling for one encoder channel
 
-const double wheel_radius = 0.034/2.0;                   //Wheel wheel_, in m
-const double wheelbase = 0.2;                        //Wheelbase, in m
+const double wheel_radius = 0.034/2.0*0.742757*0.978125;                   //Wheel wheel_, in m
+const double wheelbase = 0.2/1.375;         //Wheelbase, in m
 
-const double ppr[2] = {23636.0/20.0, 41454.0/20.0};
+const double ppr[2] = {23636.0/20.0*1.015, 41454.0/20.0};
 const double raw_to_meters[2] = {(2.0 * PI * wheel_radius) / ppr[0],
                                  (2.0 * PI * wheel_radius) / ppr[1]};
 const double meters_to_raw[2] = {1.0/raw_to_meters[0],
@@ -68,8 +68,11 @@ ros::Subscriber<geometry_msgs::Twist> cmd_vel("/cmd_vel", cmd_vel_cb);
 
 ros::Subscriber<std_msgs::String> cmd_special("/cmd_special", cmd_special_cb);
 
-nav_msgs::Odometry odom_msg;
-ros::Publisher odom_pub("odom", &odom_msg);
+// nav_msgs::Odometry odom_msg;
+// ros::Publisher odom("odom", &odom_msg);
+geometry_msgs::Pose pose_msg;
+ros::Publisher pose_pub("/pose", &pose_msg);
+
 char base_link_tf[] = "/base_link";
 char odom_tf[] = "/odom";
 
@@ -324,7 +327,13 @@ void update_odom()
 	odom_msg.header.frame_id = odom_tf;
 	odom_msg.child_frame_id = base_link_tf;
 
-	odom_pub.publish( &odom_msg );
+	// odom_msg.header.seq = seq_count++;
+	// odom_msg.header.stamp = nh.now();
+	// odom_msg.header.frame_id = odom_tf;
+	// odom_msg.child_frame_id = base_link_tf;	
+
+	pose_pub.publish(&pose_msg);
+	nh.logerror(String(th_pos).c_str());
 
 	old_raw_pos[0] = new_raw_pos[0];
 	old_raw_pos[1] = new_raw_pos[1];
