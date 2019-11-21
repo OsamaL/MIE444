@@ -24,10 +24,10 @@ const int RIGHT_ENC_B = 21;              //B channel for encoder of right motor
 const int ENCODER_TICKS_PER_REV = 32;
 const int ENCODER_TICKS_TOLERANCE = 1; //32 ticks if counting rising and falling for one encoder channel
 
-const double wheel_radius = 0.034/2.0;                   //Wheel wheel_, in m
-const double wheelbase = 0.2;                        //Wheelbase, in m
+const double wheel_radius = 0.034/2.0*0.742757*0.978125;                   //Wheel wheel_, in m
+const double wheelbase = 0.2/1.375;         //Wheelbase, in m
 
-const double ppr[2] = {23636.0/20.0, 41454.0/20.0};
+const double ppr[2] = {23636.0/20.0*1.015, 41454.0/20.0};
 const double raw_to_meters[2] = {(2.0 * PI * wheel_radius) / ppr[0],
                                  (2.0 * PI * wheel_radius) / ppr[1]};
 const double meters_to_raw[2] = {1.0/raw_to_meters[0],
@@ -336,6 +336,7 @@ void update_odom()
 	// odom_msg.child_frame_id = base_link_tf;	
 
 	pose_pub.publish(&pose_msg);
+	nh.logerror(String(th_pos).c_str());
 
 	old_raw_pos[0] = new_raw_pos[0];
 	old_raw_pos[1] = new_raw_pos[1];
