@@ -17,6 +17,10 @@ Servo grip_servo;
 //initializing all the variables
 const int LOOPTIME = 100;     //Looptime in millisecond
 
+const int RED_LED = 11;     
+const int GREEN_LED = 12;
+const int BLUE_LED = 13;
+
 const int LEFT_ENC_A = 18;               //A channel for encoder of left motor                    
 const int LEFT_ENC_B = 19;               //B channel for encoder of left motor
 const int RIGHT_ENC_A = 20;              //A channel for encoder of right motor         
@@ -85,6 +89,11 @@ void setup() {
 	setup_PID();
 	goal_pos[0] = 0.00;
 	goal_pos[1] = 0.00;
+	
+	//Setup LED
+	pinMode(RED_LED, OUTPUT);
+	pinMode(GREEN_LED, OUTPUT);
+	pinMode(BLUE_LED, OUTPUT);
 
 	// Setup ROS
 	nh.getHardware()->setBaud(115200);
@@ -239,7 +248,20 @@ void cmd_special_cb(const std_msgs::String& str) {
 	} else if (s == String("close")) {
 		grip_servo.write(0);
 		nh.loginfo(String("closing").c_str());
+	} else if (s == String("red"){
+		digitalWrite(RED_LED, LOW);
+		digitalWrite(GREEN_LED, HIGH);
+		digitalWrite(BLUE_LED, HIGH);
+	} else if (s == String("green"){
+		digitalWrite(RED_LED, HIGH);
+                digitalWrite(GREEN_LED, LOW);
+                digitalWrite(BLUE_LED, HIGH);
+	} else if (s == String("blue"){
+		digitalWrite(RED_LED, HIGH);
+                digitalWrite(GREEN_LED, HIGH);
+                digitalWrite(BLUE_LED, LOW);	
 	}
+
 	nh.loginfo(String("got cmd_special: " + String(str.data)).c_str());
 }
 
